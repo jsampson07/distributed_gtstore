@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package gtstore;
+
+// this is used to store the values for each key-val pair
+message Value {
+    repeated string items = 1;
+}
+
+// this is the functionality of how entities interact with the manager
+// so the manager provides the responses
+service ManagerService {
+    rpc Register (RegisterNodeRequest) returns (RegisterNodeResponse) {}
+    rpc GetNodeForKey (GetNodeForKeyRequest) returns (GetNodeForKeyResponse) {}
+}
+
+// we can "register" a storage node to the manager to make it aware (we do this proactively by the node, so manager auto knows about a new node)
+message RegisterNodeRequest {
+    string address = 1;
+}
+
+// this is the response sent from the "Manager" to acknowledge that the node has been "registered"
+message RegisterNodeResponse {
+    int32 node_id = 1;
+    bool success = 2;
+    int32 part_count = 3;
+}
+
+// here client wants to store a key, but what node???? manager will respond with one
+// or the client wants to access a node to get data from key pair
+message GetNodeForKeyRequest {
+    string key = 1;
+}
+
+// manager responds with node to place key-val pair
+message GetNodeForKeyResponse {
+    repeated string replica_addrs = 1;
+    repeated int32 replica_ids = 2;
+}
+
+// here the storage nodes provide the responses
+service StorageService {
+    rpc Put (PutRequest) returns (PutResponse) {}
+    rpc Get (GetRequest) returns (GetResponse) {}
+    rpc Ping (PingRequest) returns (PingResponse) {}
+    rpc TransferData (TransferDataRequest) returns (TransferDataResponse) {}
+}
+
+// this is the request to node to place data (from the client)
+message PutRequest {
+    string key = 1;
+    Value value = 2;
+}
+
+// this is the response from storage node if data save was successful
+message PutResponse {
+    bool success = 1;
+}
+
+// this is the request made to the node to by the client to retrieve some data
+message GetRequest {
+    string key = 1;
+}
+
+// this is the response from the storage node to the client with the information it asked for
+message GetResponse {
+    string key = 1;
+    Value value = 2;
+    bool found = 3;
+}
+
+// this is the request made by the Manager to "ping" storage nodes to see if they are alive or dead
+message PingRequest {
+    int32 node_id = 1; // the id for the request
+}
+
+// this is the response from the storage node to the manager to indicate if alive or dead
+message PingResponse {
+    bool ack = 1; // this is to acknowledge whether the node is alive or nto
+}
+
+// this is the request made by the manager to the "surviving" node that contains the replica data
+    // to go directly to the partition (bucket)
+    // the way this works is each node has buckets, and each bucket is "assigned" a job of data to hold
+message TransferDataRequest {
+    string dest_addr = 1;
+    int32 partition_id = 2;
+}
+
+message TransferDataResponse {
+    bool success = 1;
+}

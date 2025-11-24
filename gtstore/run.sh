@@ -3,6 +3,10 @@
 make clean
 make
 
+pkill -9 manager
+pkill -9 storage
+pkill -9 test_app
+
 # Launch the GTStore Manager
 ./bin/manager &
 sleep 5
@@ -17,5 +21,5 @@ sleep 5
 # Usage: ./test_app <test> <client_id>
 ./bin/test_app single_set_get 1 &
 ./bin/test_app single_set_get 2 &
-./bin/test_app single_set_get 3 
+./bin/test_app single_set_get 3
 
