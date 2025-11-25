@@ -141,6 +141,14 @@ class GTStoreStorage {
 				string man_addr;
 				// we get this after we have registered the manager and the manager gives us this information
 				int num_parts = 0;
+				/* based on design decision: # bukets = # of nodes ManagerService was created with
+				   and there is a one to one mapping i.e.
+				   	- bucket[0] for ALL nodes corresponds to Node 0's data
+					- bucket[1] for ALL nodes corresponds to Node 1's data
+					...
+					what this means:
+						- on Node 2, replica data for a node, will be located in bucket # = node #
+							- for Node 2, if NOT bucket[2] then we are looking at possible replica data if bucket is NON empty */
 				vector<unique_ptr<Bucket>> buckets; // this is used to enable recovering a dead node's data and replicating it a lot easier
 				//std::mutex store_mutex; took this out bc now we have the mutexes for each bucket in the node
 				unique_ptr<gtstore::ManagerService::Stub> manager_stub; // this is what allows us to connect to the "Manager"

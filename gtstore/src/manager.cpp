@@ -1,28 +1,53 @@
 #include "gtstore.hpp"
 #include <cstring>
 
+/**
+ * This method "registers" a Node within the system
+ * Adds this to the "nodes" map to keep track of all the nodes initialized (NOT a "live" feed of 'live' nodes) --> this is the job of the running_nodes
+ * @return a status after successfully adding a node
+ */
 Status GTStoreManager::ManagerService::Register(ServerContext *context, const gtstore::RegisterNodeRequest *req, gtstore::RegisterNodeResponse *resp) {
 	parent->node_mutex.lock();
 	int id = parent->next_node_id;
-	parent->next_node_id++;
-	NodeMeta info;
-	info.id = id;
-	info.addr = req->address();
-	info.is_alive = true;
+	parent->next_node_id++; // let's prepare for adding our next node next time
+	NodeMeta new_node; // this is to set our new nodes information
+	new_node.id = id; // get our id
+	new_node.addr = req->address(); // the node that requested to be "Registered" 
 	// this is to create the connection channel
-	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(info.addr, grpc::InsecureChannelCredentials());
+	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(new_node.addr, grpc::InsecureChannelCredentials());
 	// now let's create the stub, the connection we will use for the manager to communicate with the node
-	info.stub = gtstore::StorageService::NewStub(channel);
-	parent->nodes[id] = info; // let's add this node to the map of nodes we have for our system
+	new_node.stub = gtstore::StorageService::NewStub(channel);
+	parent->nodes[id] = new_node; // let's add this node to the map of nodes we have for our system
 	// now the manager provides the response so we need to set its fields which we defined in the .proto file
+	new_node.is_alive = true; // now that we are creating the node it is alive (setting this as LATE as possible incase any errors occur)
+	// set response fields so Node gets info it needs and can use when returns in it's "init" method
 	resp->set_node_id(id);
-	resp->set_success(info.is_alive);
+	resp->set_success(new_node.is_alive);
 	resp->set_part_count(parent->num_parts);
 	parent->node_mutex.unlock();
-	cout << "Manager has responded to Register request, created new node ID: " << info.id << " Address: " << info.addr << "\n";
+	cout << "Manager has responded to Register request, created new node ID: " << new_node.id << " Address: " << new_node.addr << "\n";
 	return Status::OK;
 }
 
+/**
+ * This gets/finds node(s) that hold the data corresponding to a key
+ * This is used for "PUTTING" data and also "getting" data from the client ==> in return we get a list of addresses that we can query
+ * 	==> replication --> utilize replication to also help LOAD BALANCING
+ * @return a status of successful response or not
+ * 
+ * 
+
+
+
+
+
+
+ LOOOK AT THIS FUNCTION!!!!!!!!!!!!!!!!!
+
+
+
+
+ */
 Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, const gtstore::GetNodeForKeyRequest *req, gtstore::GetNodeForKeyResponse *resp) {
 	parent->node_mutex.lock();
 	vector<int> running_nodes; // this is to get ONLY the nodes which are "active"
@@ -63,6 +88,11 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	return Status::OK;
 }
 
+/**
+ * Continuously scans ALL nodes on the system to see if it is alive or not (every few seconds (~3))
+ * IF IT IS NOT ALIVE, i.e. the storage node service sends no response, we mark the node as dead
+ * handle_node_failure is called here if a node is dead
+ */
 void GTStoreManager::check_nodes() {
 	// we want this to be infinite loop, always keep checking
 	while (true) {
@@ -75,23 +105,23 @@ void GTStoreManager::check_nodes() {
 		}
 		node_mutex.unlock(); // is this right??????????
 		for (size_t i = 0; i < checked.size(); i++) {
-			NodeMeta info = checked[i];
+			NodeMeta node = checked[i];
 			// the way i have designed this is the Manager only after realizing that the node is dead, sets this field to false
-			// so.... if already false by the time we enter this loop, we already knew it was dead
-			if (!info.is_alive) {
+			// so.... if already false by the time we enter this loop, we already knew it was dead (the whole point is to detect NEW dead nodes)
+			if (!node.is_alive) {
 				continue;
 			}
 			grpc::ClientContext context;
-			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
+			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1)); // let's give the response a window of time before we consider it DEAD
 			gtstore::PingRequest req;
 			gtstore::PingResponse resp;
-			Status status = info.stub->Ping(&context, req, &resp);
+			Status status = node.stub->Ping(&context, req, &resp);
 			if (!status.ok()) { // if we do not get an "OK" status, then we failed (dead)
 				node_mutex.lock(); // IS THIS RIGHT????
-				if (nodes[info.id].is_alive) {
-					// NOW WE know that we have a dead node because it has been marked as alive but is not responding
-					nodes[info.id].is_alive = false;
-					handle_node_failure(info.id); // now we want to handle the node failure and replicate its data onto other node(s)
+				if (nodes[node.id].is_alive) {
+					// NOW WE know that we have a dead node FOR SURE because it has been marked as alive but is not responding
+					nodes[node.id].is_alive = false;
+					handle_node_failure(node.id); // now we want to handle the node failure and replicate its data onto other node(s)
 													// while also maintaining the "sharding" behavior
 				}
 				node_mutex.unlock(); // NOT SURE IF THIS SI RIGHT OR DO I NEED "parent"???
@@ -100,6 +130,9 @@ void GTStoreManager::check_nodes() {
 	}
 }
 
+/**
+ * 
+ */
 void GTStoreManager::handle_node_failure(int dead_node_id) {
 	cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
 	int partition_lost = dead_node_id % num_parts;

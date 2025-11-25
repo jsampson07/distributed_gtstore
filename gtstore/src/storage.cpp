@@ -92,13 +92,13 @@ void GTStoreStorage::init(int port) {
 	gtstore::RegisterNodeResponse resp;
 	req.set_address(my_addr);
 
-	Status status = manager_stub->Register(&context, req, &resp);
+	Status status = manager_stub->Register(&context, req, &resp); // here we make the blocking gRPC call to "ManagerService's" Register function
 	if (!status.ok()) {
 		cout << "WE FAILED to Register Node! Womp Womp\n";
 	}
 	node_id = resp.node_id();
 	num_parts = resp.part_count();
-	// now let's initialize the buckets with Partition's
+	// now let's initialize the buckets for each node
 	for (int i = 0; i < num_parts; i++) {
 		buckets.push_back(unique_ptr<Bucket>(new Bucket()));
 	}
