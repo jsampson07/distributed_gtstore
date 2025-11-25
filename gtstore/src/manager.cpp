@@ -178,10 +178,12 @@ int main(int argc, char **argv) {
 		if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--nodes") == 0) {
 			if (i+1 < argc) {
 				n = atoi(argv[i+1]);
+				i++;
 			}
 		} else if (strcmp(argv[i], "-k") == 0 || strcmp(argv[i], "--rep") == 0) {
 			if (i+1 < argc) {
 				k = atoi(argv[i+1]);
+				i++;
 			}
 		}
 	}

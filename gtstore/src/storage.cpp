@@ -81,6 +81,10 @@ void GTStoreStorage::init(int port) {
 	builder.AddListeningPort(my_addr, grpc::InsecureServerCredentials());
 	builder.RegisterService(&service);
 	std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+	if (!server) {
+		cout << "Failed to bind to address: " << my_addr << "\n";
+		exit(1);
+	}
 	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(man_addr, grpc::InsecureChannelCredentials());
 	manager_stub = gtstore::ManagerService::NewStub(channel);
 	grpc::ClientContext context;
@@ -107,9 +111,10 @@ int main(int argc, char **argv) {
 	GTStoreStorage storage;
 	int port = 50052; // lets just default this to +1 of the manager
 	for (int i =1; i < argc; i++) {
-		if (string(argv[i]) == "-p" || string(argv[i]) == "--port") {
+		if (string(argv[i]) == "--port") {
 			if (i+1 < argc) {
 				port = atoi(argv[i+1]);
+				i++;
 			}
 		}
 	}

@@ -12,9 +12,9 @@ pkill -9 test_app
 sleep 5
 
 # Launch couple GTStore Storage Nodes
-./bin/storage &
+./bin/storage --port 50052 &
 sleep 5
-./bin/storage &
+./bin/storage --port 50053 &
 sleep 5
 
 # Launch the client testing app

@@ -16,6 +16,8 @@ void GTStoreClient::init(int id) {
 		// now all we need to do is establish a connection with the Manager
 		std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(man_addr, grpc::InsecureChannelCredentials());
 		manager_stub = gtstore::ManagerService::NewStub(channel);
+		
+		srand(time(0)); // this is to make rand() "random" now
 
 		cout << "Client initialized. We have successfully connected to the Manager!\n";
 }
@@ -51,9 +53,15 @@ val_t GTStoreClient::get(string key) {
 			Status status = stub->Get(&context2, req2, &resp2);
 			if (status.ok() && resp2.found()) { // is there ANOTHER way to do instead of .found() ==> WHERE DID .found() come from???????!!!!!!!
 				value = convert_from_protobuf(resp2.value());
+				string print_val = "";
+				if (!value.empty()) {
+					print_val = value[0];
+				}
+				cout << "> " << key << ", " << print_val << ", " << addr << "\n";
 				return value;
 			}
 		}
+		cout << "> " << key << ", (NONE)\n";
 		return value; // this should be empty if nothing is found
 }
 
@@ -78,9 +86,12 @@ bool GTStoreClient::put(string key, val_t value) {
 		// let's make a request to Manager to figure out what node(s) we can query
 		Status status = manager_stub->GetNodeForKey(&context, req, &resp);
 		if (!status.ok()) {
+			cout << "UHOH We have failed to connect to the Manager !!!!\n";
 			return false;
 		}
 		int success_count = 0;
+		// this variable is for PRINTING PURPOSES FOR test results (we want to save the server addr)
+		string server_addr = "";
 		// now let's loop through K nodes
 		for (int i = 0; i < resp.replica_addrs_size(); i++) {
 			string addr = resp.replica_addrs(i);
@@ -95,11 +106,13 @@ bool GTStoreClient::put(string key, val_t value) {
 			Status status = stub->Put(&context2, req2, &resp2);
 			if (status.ok()) {
 				success_count++;
+				server_addr = addr;
 			}
 		}
 		if (success_count == resp.replica_addrs_size()) { // if our success count is K (as expected if all writes succeed)
-			cout << "We have successfully written all data for client\n";
-			cout << "We have written data to: " << success_count << " nodes.\n";
+			//cout << "We have successfully written all data for client\n";
+			//cout << "We have written data to: " << success_count << " nodes.\n";
+			cout << "> OK, " << server_addr << "\n";
 			return true;
 		} else {
 			cout << "We wrote to" << success_count << "... BUT Expected to write to :" << resp.replica_addrs_size() << "\n";
@@ -109,5 +122,5 @@ bool GTStoreClient::put(string key, val_t value) {
 
 void GTStoreClient::finalize() {
 	cout << "Inside GTStoreClient::finalize() for client " << client_id << "\n";
-	node_stubs.clear();
+	//node_stubs.clear();
 }
