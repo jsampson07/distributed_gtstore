@@ -10,7 +10,7 @@ gtstore::StorageService::Stub* GTStoreClient::get_node_stub(string addr) {
 }
 
 void GTStoreClient::init(int id) {
-		cout << "Inside GTStoreClient::init() for client " << id << "\n";
+		//cout << "Inside GTStoreClient::init() for client " << id << "\n";
 		client_id = id;
 		string man_addr = "0.0.0.0:50051";
 		// now all we need to do is establish a connection with the Manager
@@ -19,11 +19,11 @@ void GTStoreClient::init(int id) {
 		
 		srand(time(0)); // this is to make rand() "random" now
 
-		cout << "Client initialized. We have successfully connected to the Manager!\n";
+		//cout << "Client initialized. We have successfully connected to the Manager!\n";
 }
 
 val_t GTStoreClient::get(string key) {
-		cout << "Inside GTStoreClient::get() for client: " << client_id << " key: " << key << "\n";
+		//cout << "Inside GTStoreClient::get() for client: " << client_id << " key: " << key << "\n";
 		val_t value;
 		// Get the value!!!!!!!!!!!
 		grpc::ClientContext context;
@@ -34,7 +34,7 @@ val_t GTStoreClient::get(string key) {
 		// let's make the request to the manager to see which node to query for the key
 		Status status = manager_stub->GetNodeForKey(&context, req, &resp);
 		if (!status.ok()) {
-			cout << "Failed to talk to Manager\n";
+			//cout << "Failed to talk to Manager\n";
 			return value;
 		}
 		int num_reps = resp.replica_addrs_size();
@@ -57,11 +57,11 @@ val_t GTStoreClient::get(string key) {
 				if (!value.empty()) {
 					print_val = value[0];
 				}
-				cout << "> " << key << ", " << print_val << ", " << addr << "\n";
+				//cout << "> " << key << ", " << print_val << ", " << addr << "\n";
 				return value;
 			}
 		}
-		cout << "> " << key << ", (NONE)\n";
+		//cout << "> " << key << ", (NONE)\n";
 		return value; // this should be empty if nothing is found
 }
 
@@ -76,7 +76,7 @@ bool GTStoreClient::put(string key, val_t value) {
 		for (uint i = 0; i < value.size(); i++) {
 				print_value += value[i] + " ";
 		}
-		cout << "Inside GTStoreClient::put() for client: " << client_id << " key: " << key << " value: " << print_value << "\n";
+		//cout << "Inside GTStoreClient::put() for client: " << client_id << " key: " << key << " value: " << print_value << "\n";
 		// Put the value!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		grpc::ClientContext context;
 		gtstore::GetNodeForKeyRequest req;
@@ -86,12 +86,12 @@ bool GTStoreClient::put(string key, val_t value) {
 		// let's make a request to Manager to figure out what node(s) we can query
 		Status status = manager_stub->GetNodeForKey(&context, req, &resp);
 		if (!status.ok()) {
-			cout << "UHOH We have failed to connect to the Manager !!!!\n";
+			//cout << "UHOH We have failed to connect to the Manager !!!!\n";
 			return false;
 		}
 		int success_count = 0;
 		// this variable is for PRINTING PURPOSES FOR test results (we want to save the server addr)
-		string server_addr = "";
+		string servers = "";
 		// now let's loop through K nodes
 		for (int i = 0; i < resp.replica_addrs_size(); i++) {
 			string addr = resp.replica_addrs(i);
@@ -106,16 +106,21 @@ bool GTStoreClient::put(string key, val_t value) {
 			Status status = stub->Put(&context2, req2, &resp2);
 			if (status.ok()) {
 				success_count++;
-				server_addr = addr;
+				servers += addr + "  ";
 			}
 		}
 		if (success_count == resp.replica_addrs_size()) { // if our success count is K (as expected if all writes succeed)
 			//cout << "We have successfully written all data for client\n";
 			//cout << "We have written data to: " << success_count << " nodes.\n";
-			cout << "> OK, " << server_addr << "\n";
+			
+			
+			
+			
+			
+			//cout << "> OK, " << servers << "\n";
 			return true;
 		} else {
-			cout << "We wrote to" << success_count << "... BUT Expected to write to :" << resp.replica_addrs_size() << "\n";
+			//cout << "We wrote to" << success_count << "... BUT Expected to write to :" << resp.replica_addrs_size() << "\n";
 			return false;
 		}
 }

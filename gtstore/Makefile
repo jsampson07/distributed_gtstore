@@ -14,7 +14,7 @@ PROTO_GEN = src/gtstore.pb.cc src/gtstore.grpc.pb.cc
 
 # --- 2. Targets ---
 # These match the names in your original Makefile
-all: test_app manager storage
+all: test_app manager storage performance_test
 
 # --- 3. Generate the gRPC Code ---
 $(PROTO_GEN): $(PROTO_SRC)
@@ -34,6 +34,10 @@ storage: src/storage.cpp $(PROTO_GEN)
 test_app: src/test_app.cpp src/client.cpp $(PROTO_GEN)
 	mkdir -p bin
 	$(CC) $(CFLAGS) src/test_app.cpp src/client.cpp $(PROTO_GEN) $(LFLAGS) -o bin/test_app
+
+performance_test: src/performance_tests.cpp src/client.cpp $(PROTO_GEN)
+	mkdir -p bin
+	$(CC) $(CFLAGS) src/performance_tests.cpp src/client.cpp $(PROTO_GEN) $(LFLAGS) -o bin/performance_test
 
 clean:
 	$(RM) src/*.o src/*.pb.cc src/*.pb.h bin/*
