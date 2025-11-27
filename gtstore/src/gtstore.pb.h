@@ -534,7 +534,7 @@ class RegisterNodeResponse PROTOBUF_FINAL :
   enum : int {
     kNodeIdFieldNumber = 1,
     kSuccessFieldNumber = 2,
-    kPartCountFieldNumber = 3,
+    kBucketCountFieldNumber = 3,
   };
   // int32 node_id = 1;
   void clear_node_id();
@@ -554,13 +554,13 @@ class RegisterNodeResponse PROTOBUF_FINAL :
   void _internal_set_success(bool value);
   public:
 
-  // int32 part_count = 3;
-  void clear_part_count();
-  ::PROTOBUF_NAMESPACE_ID::int32 part_count() const;
-  void set_part_count(::PROTOBUF_NAMESPACE_ID::int32 value);
+  // int32 bucket_count = 3;
+  void clear_bucket_count();
+  ::PROTOBUF_NAMESPACE_ID::int32 bucket_count() const;
+  void set_bucket_count(::PROTOBUF_NAMESPACE_ID::int32 value);
   private:
-  ::PROTOBUF_NAMESPACE_ID::int32 _internal_part_count() const;
-  void _internal_set_part_count(::PROTOBUF_NAMESPACE_ID::int32 value);
+  ::PROTOBUF_NAMESPACE_ID::int32 _internal_bucket_count() const;
+  void _internal_set_bucket_count(::PROTOBUF_NAMESPACE_ID::int32 value);
   public:
 
   // @@protoc_insertion_point(class_scope:gtstore.RegisterNodeResponse)
@@ -572,7 +572,7 @@ class RegisterNodeResponse PROTOBUF_FINAL :
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::int32 node_id_;
   bool success_;
-  ::PROTOBUF_NAMESPACE_ID::int32 part_count_;
+  ::PROTOBUF_NAMESPACE_ID::int32 bucket_count_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_gtstore_2eproto;
 };
@@ -1943,7 +1943,7 @@ class TransferDataRequest PROTOBUF_FINAL :
 
   enum : int {
     kDestAddrFieldNumber = 1,
-    kPartitionIdFieldNumber = 2,
+    kBucketIdFieldNumber = 2,
   };
   // string dest_addr = 1;
   void clear_dest_addr();
@@ -1970,13 +1970,13 @@ class TransferDataRequest PROTOBUF_FINAL :
   std::string* _internal_mutable_dest_addr();
   public:
 
-  // int32 partition_id = 2;
-  void clear_partition_id();
-  ::PROTOBUF_NAMESPACE_ID::int32 partition_id() const;
-  void set_partition_id(::PROTOBUF_NAMESPACE_ID::int32 value);
+  // int32 bucket_id = 2;
+  void clear_bucket_id();
+  ::PROTOBUF_NAMESPACE_ID::int32 bucket_id() const;
+  void set_bucket_id(::PROTOBUF_NAMESPACE_ID::int32 value);
   private:
-  ::PROTOBUF_NAMESPACE_ID::int32 _internal_partition_id() const;
-  void _internal_set_partition_id(::PROTOBUF_NAMESPACE_ID::int32 value);
+  ::PROTOBUF_NAMESPACE_ID::int32 _internal_bucket_id() const;
+  void _internal_set_bucket_id(::PROTOBUF_NAMESPACE_ID::int32 value);
   public:
 
   // @@protoc_insertion_point(class_scope:gtstore.TransferDataRequest)
@@ -1987,7 +1987,7 @@ class TransferDataRequest PROTOBUF_FINAL :
   typedef void InternalArenaConstructable_;
   typedef void DestructorSkippable_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr dest_addr_;
-  ::PROTOBUF_NAMESPACE_ID::int32 partition_id_;
+  ::PROTOBUF_NAMESPACE_ID::int32 bucket_id_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_gtstore_2eproto;
 };
@@ -2342,24 +2342,24 @@ inline void RegisterNodeResponse::set_success(bool value) {
   // @@protoc_insertion_point(field_set:gtstore.RegisterNodeResponse.success)
 }
 
-// int32 part_count = 3;
-inline void RegisterNodeResponse::clear_part_count() {
-  part_count_ = 0;
+// int32 bucket_count = 3;
+inline void RegisterNodeResponse::clear_bucket_count() {
+  bucket_count_ = 0;
 }
-inline ::PROTOBUF_NAMESPACE_ID::int32 RegisterNodeResponse::_internal_part_count() const {
-  return part_count_;
+inline ::PROTOBUF_NAMESPACE_ID::int32 RegisterNodeResponse::_internal_bucket_count() const {
+  return bucket_count_;
 }
-inline ::PROTOBUF_NAMESPACE_ID::int32 RegisterNodeResponse::part_count() const {
-  // @@protoc_insertion_point(field_get:gtstore.RegisterNodeResponse.part_count)
-  return _internal_part_count();
+inline ::PROTOBUF_NAMESPACE_ID::int32 RegisterNodeResponse::bucket_count() const {
+  // @@protoc_insertion_point(field_get:gtstore.RegisterNodeResponse.bucket_count)
+  return _internal_bucket_count();
 }
-inline void RegisterNodeResponse::_internal_set_part_count(::PROTOBUF_NAMESPACE_ID::int32 value) {
+inline void RegisterNodeResponse::_internal_set_bucket_count(::PROTOBUF_NAMESPACE_ID::int32 value) {
   
-  part_count_ = value;
+  bucket_count_ = value;
 }
-inline void RegisterNodeResponse::set_part_count(::PROTOBUF_NAMESPACE_ID::int32 value) {
-  _internal_set_part_count(value);
-  // @@protoc_insertion_point(field_set:gtstore.RegisterNodeResponse.part_count)
+inline void RegisterNodeResponse::set_bucket_count(::PROTOBUF_NAMESPACE_ID::int32 value) {
+  _internal_set_bucket_count(value);
+  // @@protoc_insertion_point(field_set:gtstore.RegisterNodeResponse.bucket_count)
 }
 
 // -------------------------------------------------------------------
@@ -3166,24 +3166,24 @@ inline void TransferDataRequest::unsafe_arena_set_allocated_dest_addr(
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:gtstore.TransferDataRequest.dest_addr)
 }
 
-// int32 partition_id = 2;
-inline void TransferDataRequest::clear_partition_id() {
-  partition_id_ = 0;
+// int32 bucket_id = 2;
+inline void TransferDataRequest::clear_bucket_id() {
+  bucket_id_ = 0;
 }
-inline ::PROTOBUF_NAMESPACE_ID::int32 TransferDataRequest::_internal_partition_id() const {
-  return partition_id_;
+inline ::PROTOBUF_NAMESPACE_ID::int32 TransferDataRequest::_internal_bucket_id() const {
+  return bucket_id_;
 }
-inline ::PROTOBUF_NAMESPACE_ID::int32 TransferDataRequest::partition_id() const {
-  // @@protoc_insertion_point(field_get:gtstore.TransferDataRequest.partition_id)
-  return _internal_partition_id();
+inline ::PROTOBUF_NAMESPACE_ID::int32 TransferDataRequest::bucket_id() const {
+  // @@protoc_insertion_point(field_get:gtstore.TransferDataRequest.bucket_id)
+  return _internal_bucket_id();
 }
-inline void TransferDataRequest::_internal_set_partition_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
+inline void TransferDataRequest::_internal_set_bucket_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
   
-  partition_id_ = value;
+  bucket_id_ = value;
 }
-inline void TransferDataRequest::set_partition_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
-  _internal_set_partition_id(value);
-  // @@protoc_insertion_point(field_set:gtstore.TransferDataRequest.partition_id)
+inline void TransferDataRequest::set_bucket_id(::PROTOBUF_NAMESPACE_ID::int32 value) {
+  _internal_set_bucket_id(value);
+  // @@protoc_insertion_point(field_set:gtstore.TransferDataRequest.bucket_id)
 }
 
 // -------------------------------------------------------------------

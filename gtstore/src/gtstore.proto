@@ -23,7 +23,7 @@ message RegisterNodeRequest {
 message RegisterNodeResponse {
     int32 node_id = 1;
     bool success = 2;
-    int32 part_count = 3;
+    int32 bucket_count = 3;
 }
 
 // here client wants to store a key, but what node???? manager will respond with one
@@ -84,7 +84,7 @@ message PingResponse {
     // the way this works is each node has buckets, and each bucket is "assigned" a job of data to hold
 message TransferDataRequest {
     string dest_addr = 1;
-    int32 partition_id = 2;
+    int32 bucket_id = 2;
 }
 
 message TransferDataResponse {

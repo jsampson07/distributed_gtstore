@@ -1,12 +1,12 @@
 #include "gtstore.hpp"
 
 Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore::PutRequest *req, gtstore::PutResponse *resp) {
-	if (parent->num_parts == 0) {
+	if (parent->num_buckets == 0) {
 		return Status(grpc::StatusCode::FAILED_PRECONDITION, "We have no buckets");
 	}
 	string key = req->key(); // get the key value
-	int partition_id = get_bucket_id(key, parent->num_parts);
-	Bucket *bucket = parent->buckets[partition_id].get();
+	int bucket_id = get_bucket_id(key, parent->num_buckets);
+	Bucket *bucket = parent->buckets[bucket_id].get();
 	// now we will write the data to this bucket
 	bucket->bucket_mutex.lock();
 	val_t value = convert_from_protobuf(req->value()); 
@@ -18,11 +18,11 @@ Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore
 }
 
 Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore::GetRequest *req, gtstore::GetResponse *resp) {
-	if (parent->num_parts == 0) {
+	if (parent->num_buckets == 0) {
 		return Status(grpc::StatusCode::FAILED_PRECONDITION, "We have no buckets");
 	}
 	string key = req->key(); // the key from the request (this is the infomration that the Client wants to get)
-	int bucket_id = get_bucket_id(key, parent->num_parts);
+	int bucket_id = get_bucket_id(key, parent->num_buckets);
 	Bucket *bucket = parent->buckets[bucket_id].get(); // get the data
 	// now that we are accessing data from the partition, we do not want to be able to write to it right now
 	bucket->bucket_mutex.lock();
@@ -40,7 +40,7 @@ Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore
 
 Status GTStoreStorage::StorageService::TransferData(ServerContext* context, const gtstore::TransferDataRequest *req, gtstore::TransferDataResponse *resp) {
 	string target = req->dest_addr(); // this is to get the destination address passed in by the request
-	int bucket_id = req->partition_id();
+	int bucket_id = req->bucket_id();
 	// we are creating a new channel to communicate with the node i will transfer the data over to
 	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
 	std::unique_ptr<gtstore::StorageService::Stub> stub = gtstore::StorageService::NewStub(channel);
@@ -55,8 +55,7 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 		gtstore::PutResponse resp;
 		// let's set our key and value "values" in our request to the "target" node
 		req.set_key(iterator->first); // note that ->first is the key and ->second is the value
-		// mutable_value is the empty Value object inside of the request
-		convert_to_protobuf(iterator->second, req.mutable_value()); // WHAT IS THSI LINE DOING?????????//
+		convert_to_protobuf(iterator->second, req.mutable_value()); // turn into format for protocol buffer
 
 		Status status = stub->Put(&context, req, &resp);
 	}
@@ -66,7 +65,7 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 	return Status::OK;
 }
 
-// this is all the storage node has to do when responding to a Ping request from the Manager
+// this is all the storage node has to do when responding to a Ping request from the Manager (respond to server)
 Status GTStoreStorage::StorageService::Ping(ServerContext *context, const gtstore::PingRequest *req, gtstore::PingResponse *resp) {
 	resp->set_ack(true); // acknowledge that it is true
 	return Status::OK;
@@ -97,13 +96,13 @@ void GTStoreStorage::init(int port) {
 		cout << "WE FAILED to Register Node! Womp Womp\n";
 	}
 	node_id = resp.node_id();
-	num_parts = resp.part_count();
+	num_buckets = resp.bucket_count();
 	// now let's initialize the buckets with Partition's
-	for (int i = 0; i < num_parts; i++) {
+	for (int i = 0; i < num_buckets; i++) {
 		buckets.push_back(unique_ptr<Bucket>(new Bucket()));
 	}
 	cout << "Successfully registered node ID: " << node_id << "\n";
-	cout << "Number of buckets: " << num_parts << "\n";
+	cout << "Number of buckets: " << num_buckets << "\n";
 	server->Wait();
 }
 

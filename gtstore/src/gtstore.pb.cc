@@ -277,7 +277,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_gtstore_2eproto::offsets[] PRO
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::gtstore::RegisterNodeResponse, node_id_),
   PROTOBUF_FIELD_OFFSET(::gtstore::RegisterNodeResponse, success_),
-  PROTOBUF_FIELD_OFFSET(::gtstore::RegisterNodeResponse, part_count_),
+  PROTOBUF_FIELD_OFFSET(::gtstore::RegisterNodeResponse, bucket_count_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::gtstore::GetNodeForKeyRequest, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -336,7 +336,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_gtstore_2eproto::offsets[] PRO
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
   PROTOBUF_FIELD_OFFSET(::gtstore::TransferDataRequest, dest_addr_),
-  PROTOBUF_FIELD_OFFSET(::gtstore::TransferDataRequest, partition_id_),
+  PROTOBUF_FIELD_OFFSET(::gtstore::TransferDataRequest, bucket_id_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::gtstore::TransferDataResponse, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -379,31 +379,31 @@ static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] =
 const char descriptor_table_protodef_gtstore_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
   "\n\rgtstore.proto\022\007gtstore\"\026\n\005Value\022\r\n\005ite"
   "ms\030\001 \003(\t\"&\n\023RegisterNodeRequest\022\017\n\007addre"
-  "ss\030\001 \001(\t\"L\n\024RegisterNodeResponse\022\017\n\007node"
-  "_id\030\001 \001(\005\022\017\n\007success\030\002 \001(\010\022\022\n\npart_count"
-  "\030\003 \001(\005\"#\n\024GetNodeForKeyRequest\022\013\n\003key\030\001 "
-  "\001(\t\"C\n\025GetNodeForKeyResponse\022\025\n\rreplica_"
-  "addrs\030\001 \003(\t\022\023\n\013replica_ids\030\002 \003(\005\"8\n\nPutR"
-  "equest\022\013\n\003key\030\001 \001(\t\022\035\n\005value\030\002 \001(\0132\016.gts"
-  "tore.Value\"\036\n\013PutResponse\022\017\n\007success\030\001 \001"
-  "(\010\"\031\n\nGetRequest\022\013\n\003key\030\001 \001(\t\"H\n\013GetResp"
-  "onse\022\013\n\003key\030\001 \001(\t\022\035\n\005value\030\002 \001(\0132\016.gtsto"
-  "re.Value\022\r\n\005found\030\003 \001(\010\"\036\n\013PingRequest\022\017"
-  "\n\007node_id\030\001 \001(\005\"\033\n\014PingResponse\022\013\n\003ack\030\001"
-  " \001(\010\">\n\023TransferDataRequest\022\021\n\tdest_addr"
-  "\030\001 \001(\t\022\024\n\014partition_id\030\002 \001(\005\"\'\n\024Transfer"
-  "DataResponse\022\017\n\007success\030\001 \001(\0102\255\001\n\016Manage"
-  "rService\022I\n\010Register\022\034.gtstore.RegisterN"
-  "odeRequest\032\035.gtstore.RegisterNodeRespons"
-  "e\"\000\022P\n\rGetNodeForKey\022\035.gtstore.GetNodeFo"
-  "rKeyRequest\032\036.gtstore.GetNodeForKeyRespo"
-  "nse\"\0002\376\001\n\016StorageService\0222\n\003Put\022\023.gtstor"
-  "e.PutRequest\032\024.gtstore.PutResponse\"\000\0222\n\003"
-  "Get\022\023.gtstore.GetRequest\032\024.gtstore.GetRe"
-  "sponse\"\000\0225\n\004Ping\022\024.gtstore.PingRequest\032\025"
-  ".gtstore.PingResponse\"\000\022M\n\014TransferData\022"
-  "\034.gtstore.TransferDataRequest\032\035.gtstore."
-  "TransferDataResponse\"\000b\006proto3"
+  "ss\030\001 \001(\t\"N\n\024RegisterNodeResponse\022\017\n\007node"
+  "_id\030\001 \001(\005\022\017\n\007success\030\002 \001(\010\022\024\n\014bucket_cou"
+  "nt\030\003 \001(\005\"#\n\024GetNodeForKeyRequest\022\013\n\003key\030"
+  "\001 \001(\t\"C\n\025GetNodeForKeyResponse\022\025\n\rreplic"
+  "a_addrs\030\001 \003(\t\022\023\n\013replica_ids\030\002 \003(\005\"8\n\nPu"
+  "tRequest\022\013\n\003key\030\001 \001(\t\022\035\n\005value\030\002 \001(\0132\016.g"
+  "tstore.Value\"\036\n\013PutResponse\022\017\n\007success\030\001"
+  " \001(\010\"\031\n\nGetRequest\022\013\n\003key\030\001 \001(\t\"H\n\013GetRe"
+  "sponse\022\013\n\003key\030\001 \001(\t\022\035\n\005value\030\002 \001(\0132\016.gts"
+  "tore.Value\022\r\n\005found\030\003 \001(\010\"\036\n\013PingRequest"
+  "\022\017\n\007node_id\030\001 \001(\005\"\033\n\014PingResponse\022\013\n\003ack"
+  "\030\001 \001(\010\";\n\023TransferDataRequest\022\021\n\tdest_ad"
+  "dr\030\001 \001(\t\022\021\n\tbucket_id\030\002 \001(\005\"\'\n\024TransferD"
+  "ataResponse\022\017\n\007success\030\001 \001(\0102\255\001\n\016Manager"
+  "Service\022I\n\010Register\022\034.gtstore.RegisterNo"
+  "deRequest\032\035.gtstore.RegisterNodeResponse"
+  "\"\000\022P\n\rGetNodeForKey\022\035.gtstore.GetNodeFor"
+  "KeyRequest\032\036.gtstore.GetNodeForKeyRespon"
+  "se\"\0002\376\001\n\016StorageService\0222\n\003Put\022\023.gtstore"
+  ".PutRequest\032\024.gtstore.PutResponse\"\000\0222\n\003G"
+  "et\022\023.gtstore.GetRequest\032\024.gtstore.GetRes"
+  "ponse\"\000\0225\n\004Ping\022\024.gtstore.PingRequest\032\025."
+  "gtstore.PingResponse\"\000\022M\n\014TransferData\022\034"
+  ".gtstore.TransferDataRequest\032\035.gtstore.T"
+  "ransferDataResponse\"\000b\006proto3"
   ;
 static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_gtstore_2eproto_deps[1] = {
 };
@@ -424,7 +424,7 @@ static ::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase*const descriptor_table_gts
 };
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_gtstore_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_gtstore_2eproto = {
-  false, false, descriptor_table_protodef_gtstore_2eproto, "gtstore.proto", 1070,
+  false, false, descriptor_table_protodef_gtstore_2eproto, "gtstore.proto", 1069,
   &descriptor_table_gtstore_2eproto_once, descriptor_table_gtstore_2eproto_sccs, descriptor_table_gtstore_2eproto_deps, 13, 0,
   schemas, file_default_instances, TableStruct_gtstore_2eproto::offsets,
   file_level_metadata_gtstore_2eproto, 13, file_level_enum_descriptors_gtstore_2eproto, file_level_service_descriptors_gtstore_2eproto,
@@ -869,15 +869,15 @@ RegisterNodeResponse::RegisterNodeResponse(const RegisterNodeResponse& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   ::memcpy(&node_id_, &from.node_id_,
-    static_cast<size_t>(reinterpret_cast<char*>(&part_count_) -
-    reinterpret_cast<char*>(&node_id_)) + sizeof(part_count_));
+    static_cast<size_t>(reinterpret_cast<char*>(&bucket_count_) -
+    reinterpret_cast<char*>(&node_id_)) + sizeof(bucket_count_));
   // @@protoc_insertion_point(copy_constructor:gtstore.RegisterNodeResponse)
 }
 
 void RegisterNodeResponse::SharedCtor() {
   ::memset(&node_id_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&part_count_) -
-      reinterpret_cast<char*>(&node_id_)) + sizeof(part_count_));
+      reinterpret_cast<char*>(&bucket_count_) -
+      reinterpret_cast<char*>(&node_id_)) + sizeof(bucket_count_));
 }
 
 RegisterNodeResponse::~RegisterNodeResponse() {
@@ -912,8 +912,8 @@ void RegisterNodeResponse::Clear() {
   (void) cached_has_bits;
 
   ::memset(&node_id_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&part_count_) -
-      reinterpret_cast<char*>(&node_id_)) + sizeof(part_count_));
+      reinterpret_cast<char*>(&bucket_count_) -
+      reinterpret_cast<char*>(&node_id_)) + sizeof(bucket_count_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -939,10 +939,10 @@ const char* RegisterNodeResponse::_InternalParse(const char* ptr, ::PROTOBUF_NAM
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // int32 part_count = 3;
+      // int32 bucket_count = 3;
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          part_count_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          bucket_count_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -986,10 +986,10 @@ failure:
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteBoolToArray(2, this->_internal_success(), target);
   }
 
-  // int32 part_count = 3;
-  if (this->part_count() != 0) {
+  // int32 bucket_count = 3;
+  if (this->bucket_count() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(3, this->_internal_part_count(), target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(3, this->_internal_bucket_count(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1020,11 +1020,11 @@ size_t RegisterNodeResponse::ByteSizeLong() const {
     total_size += 1 + 1;
   }
 
-  // int32 part_count = 3;
-  if (this->part_count() != 0) {
+  // int32 bucket_count = 3;
+  if (this->bucket_count() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
-        this->_internal_part_count());
+        this->_internal_bucket_count());
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1064,8 +1064,8 @@ void RegisterNodeResponse::MergeFrom(const RegisterNodeResponse& from) {
   if (from.success() != 0) {
     _internal_set_success(from._internal_success());
   }
-  if (from.part_count() != 0) {
-    _internal_set_part_count(from._internal_part_count());
+  if (from.bucket_count() != 0) {
+    _internal_set_bucket_count(from._internal_bucket_count());
   }
 }
 
@@ -1091,8 +1091,8 @@ void RegisterNodeResponse::InternalSwap(RegisterNodeResponse* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(RegisterNodeResponse, part_count_)
-      + sizeof(RegisterNodeResponse::part_count_)
+      PROTOBUF_FIELD_OFFSET(RegisterNodeResponse, bucket_count_)
+      + sizeof(RegisterNodeResponse::bucket_count_)
       - PROTOBUF_FIELD_OFFSET(RegisterNodeResponse, node_id_)>(
           reinterpret_cast<char*>(&node_id_),
           reinterpret_cast<char*>(&other->node_id_));
@@ -2913,14 +2913,14 @@ TransferDataRequest::TransferDataRequest(const TransferDataRequest& from)
     dest_addr_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), from._internal_dest_addr(),
       GetArena());
   }
-  partition_id_ = from.partition_id_;
+  bucket_id_ = from.bucket_id_;
   // @@protoc_insertion_point(copy_constructor:gtstore.TransferDataRequest)
 }
 
 void TransferDataRequest::SharedCtor() {
   ::PROTOBUF_NAMESPACE_ID::internal::InitSCC(&scc_info_TransferDataRequest_gtstore_2eproto.base);
   dest_addr_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
-  partition_id_ = 0;
+  bucket_id_ = 0;
 }
 
 TransferDataRequest::~TransferDataRequest() {
@@ -2956,7 +2956,7 @@ void TransferDataRequest::Clear() {
   (void) cached_has_bits;
 
   dest_addr_.ClearToEmpty(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-  partition_id_ = 0;
+  bucket_id_ = 0;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -2977,10 +2977,10 @@ const char* TransferDataRequest::_InternalParse(const char* ptr, ::PROTOBUF_NAME
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
-      // int32 partition_id = 2;
+      // int32 bucket_id = 2;
       case 2:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
-          partition_id_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+          bucket_id_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
         } else goto handle_unusual;
         continue;
@@ -3022,10 +3022,10 @@ failure:
         1, this->_internal_dest_addr(), target);
   }
 
-  // int32 partition_id = 2;
-  if (this->partition_id() != 0) {
+  // int32 bucket_id = 2;
+  if (this->bucket_id() != 0) {
     target = stream->EnsureSpace(target);
-    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(2, this->_internal_partition_id(), target);
+    target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteInt32ToArray(2, this->_internal_bucket_id(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -3051,11 +3051,11 @@ size_t TransferDataRequest::ByteSizeLong() const {
         this->_internal_dest_addr());
   }
 
-  // int32 partition_id = 2;
-  if (this->partition_id() != 0) {
+  // int32 bucket_id = 2;
+  if (this->bucket_id() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::Int32Size(
-        this->_internal_partition_id());
+        this->_internal_bucket_id());
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -3092,8 +3092,8 @@ void TransferDataRequest::MergeFrom(const TransferDataRequest& from) {
   if (from.dest_addr().size() > 0) {
     _internal_set_dest_addr(from._internal_dest_addr());
   }
-  if (from.partition_id() != 0) {
-    _internal_set_partition_id(from._internal_partition_id());
+  if (from.bucket_id() != 0) {
+    _internal_set_bucket_id(from._internal_bucket_id());
   }
 }
 
@@ -3119,7 +3119,7 @@ void TransferDataRequest::InternalSwap(TransferDataRequest* other) {
   using std::swap;
   _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
   dest_addr_.Swap(&other->dest_addr_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
-  swap(partition_id_, other->partition_id_);
+  swap(bucket_id_, other->bucket_id_);
 }
 
 ::PROTOBUF_NAMESPACE_ID::Metadata TransferDataRequest::GetMetadata() const {

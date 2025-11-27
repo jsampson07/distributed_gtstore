@@ -38,7 +38,7 @@ val_t GTStoreClient::get(string key) {
 			return value;
 		}
 		int num_reps = resp.replica_addrs_size();
-		// now after we get the number of nodes that we have stored data on let's pick a "random" starting index
+		// now after we get the number of nodes that we have stored data on let's pick a "random" starting index (LOAD BALANCING)
 		int start_idx = rand() % num_reps;
 		// this generates a random starting index which we can start looping from (implemented with the "wrap-around" behavior)
 		for (int i = 0; i < num_reps; i++) {
@@ -126,6 +126,6 @@ bool GTStoreClient::put(string key, val_t value) {
 }
 
 void GTStoreClient::finalize() {
-	cout << "Inside GTStoreClient::finalize() for client " << client_id << "\n";
+	//cout << "Inside GTStoreClient::finalize() for client " << client_id << "\n";
 	//node_stubs.clear();
 }

@@ -87,10 +87,15 @@ void run_load_balance_test(int client_id, int num_ops, int num_nodes) {
     cout << "\nHISTOGRAM\n";
     cout << "Node ID | Key Count | Distribution\n";
     cout << "--------|-----------|-------------\n";
+
+    int scale = 500;
     for (int i = 0; i < num_nodes; i++) {
         int count = key_counts[i];
+        int num_chars = count / scale;
+        string bar(num_chars, '#');
         cout << setw(7) << i << " | " 
-             << setw(9) << count << " | \n";
+             << setw(9) << count << " | "
+             << bar << "\n";
     }
     client.finalize();
 }

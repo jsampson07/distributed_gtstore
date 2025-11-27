@@ -18,8 +18,8 @@
 #include <grpcpp/grpcpp.h>
 #include "gtstore.grpc.pb.h" 
 
-#define DEF_PART_COUNT 7
-#define DEF_REP 3
+#define DEF_BUCKET_COUNT 7
+#define DEF_REP 1
 
 #define MAX_KEY_BYTE_PER_REQUEST 20
 #define MAX_VALUE_BYTE_PER_REQUEST 1000
@@ -51,11 +51,11 @@ inline val_t convert_from_protobuf(const gtstore::Value &src) {
 }
 
 // this function will calculate which partition (bucket) to place a key ==> SHARDING !!!!!!!
-inline int get_bucket_id(string key, int num_parts) {
+inline int get_bucket_id(string key, int num_buckets) {
 	std::hash<std::string> hash; // this is used for the hashing
 	// then we want to hash the key and then place it in its respective "bucket" based on the modulo
 	size_t hash_val = hash(key);
-	int result = hash_val%num_parts;
+	int result = hash_val%num_buckets;
 	return result;
 }
 
@@ -109,14 +109,14 @@ class GTStoreManager {
 				std::map<int, NodeMeta> nodes;
 				std::mutex node_mutex;
 				int next_node_id = 0; // id for the next created node
-				int num_parts; // number of partitions
+				int num_buckets; // number of partitions
 				int rep_factor; // number of replicas
 				// initializes the default values
-				GTStoreManager() : num_parts(DEF_PART_COUNT), rep_factor(DEF_REP) {}
+				GTStoreManager() : num_buckets(DEF_BUCKET_COUNT), rep_factor(DEF_REP) {}
 				void init(int n, int k); // accepts n nodes and k replicas as cml args
 };
 
-// Partition
+// Buckets
 // here we will put data AND individual locks for each partition so that we cna write to the same node
 	// at once, but not the same partition, before would have costed extreme performance overhead
 struct Bucket {
@@ -140,7 +140,7 @@ class GTStoreStorage {
 				string my_addr;
 				string man_addr;
 				// we get this after we have registered the manager and the manager gives us this information
-				int num_parts = 0;
+				int num_buckets = 0;
 				/* based on design decision: # bukets = # of nodes ManagerService was created with
 				   and there is a one to one mapping i.e.
 				   	- bucket[0] for ALL nodes corresponds to Node 0's data

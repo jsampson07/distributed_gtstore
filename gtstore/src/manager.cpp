@@ -17,7 +17,7 @@ Status GTStoreManager::ManagerService::Register(ServerContext *context, const gt
 	// now the manager provides the response so we need to set its fields which we defined in the .proto file
 	resp->set_node_id(id);
 	resp->set_success(new_node.is_alive);
-	resp->set_part_count(parent->num_parts);
+	resp->set_bucket_count(parent->num_buckets);
 	parent->node_mutex.unlock();
 	cout << "Manager has responded to Register request, created new node ID: " << new_node.id << " Address: " << new_node.addr << "\n";
 	return Status::OK;
@@ -36,9 +36,9 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		return Status(grpc::StatusCode::UNAVAILABLE, "None"); // is there something else I can return??????????
 	}
 	// this is to calculate where to place the data in the particular node
-	int part_id = get_bucket_id(req->key(), parent->num_parts);
+	int bucket_id = get_bucket_id(req->key(), parent->num_buckets);
 	int node_arr_size = node_arr.size();
-	int start = part_id % node_arr_size; // why do we need this line???
+	int start = bucket_id % node_arr_size; // why do we need this line???
 	int num_reps = parent->rep_factor;
 	int count = 0;
 	int num_nodes_found = 0; // once this is num_reps then we know we have iterated our "K" factor of times
@@ -98,23 +98,24 @@ void GTStoreManager::check_nodes() {
 		}
 		node_mutex.unlock(); // is this right??????????
 		for (size_t i = 0; i < checked.size(); i++) {
-			NodeMeta info = checked[i];
+			NodeMeta curr_node = checked[i];
 			// the way i have designed this is the Manager only after realizing that the node is dead, sets this field to false
 			// so.... if already false by the time we enter this loop, we already knew it was dead
-			if (!info.is_alive) {
+			if (!curr_node.is_alive) {
 				continue;
 			}
 			grpc::ClientContext context;
+			// let's give it 1 second to respond (more than enough time) --> if not within a second --> assumed to be a DEAD node
 			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 			gtstore::PingRequest req;
 			gtstore::PingResponse resp;
-			Status status = info.stub->Ping(&context, req, &resp);
+			Status status = curr_node.stub->Ping(&context, req, &resp);
 			if (!status.ok()) { // if we do not get an "OK" status, then we failed (dead)
 				node_mutex.lock(); // IS THIS RIGHT????
-				if (nodes[info.id].is_alive) {
+				if (nodes[curr_node.id].is_alive) {
 					// NOW WE know that we have a dead node because it has been marked as alive but is not responding
-					nodes[info.id].is_alive = false;
-					handle_node_failure(info.id); // now we want to handle the node failure and replicate its data onto other node(s)
+					nodes[curr_node.id].is_alive = false;
+					handle_node_failure(curr_node.id); // now we want to handle the node failure and replicate its data onto other node(s)
 													// while also maintaining the "sharding" behavior
 				}
 				node_mutex.unlock(); // NOT SURE IF THIS SI RIGHT OR DO I NEED "parent"???
@@ -125,7 +126,7 @@ void GTStoreManager::check_nodes() {
 
 void GTStoreManager::handle_node_failure(int dead_node_id) {
 	cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
-	int partition_lost = dead_node_id % num_parts;
+	int bucket_lost = dead_node_id % num_buckets;
 	int backup_id = -1;
 	int target_id = -1;
 
@@ -210,14 +211,14 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 		// let's get the addr of the target to tell the backup node (with the replica data) to send data there
 		string target_addr = nodes[target_id].addr;
 		req.set_dest_addr(target_addr);
-		req.set_partition_id(partition_lost);
+		req.set_bucket_id(bucket_lost);
 
 		// now lets get the backup node (which contains the replica data of the dead node) to send data over to the target node
 		Status status = nodes[backup_id].stub->TransferData(&context, req, &resp);
 		if (status.ok()) {
 			cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
 		} else {
-			cout << "Recovery failed!!!: " << status.error_code() << "\n";
+			cout << "Recovery failed!!!\n";
 		}
 	} else {
 		cout << "No backup or target node found\n";
@@ -227,7 +228,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 void GTStoreManager::init(int n, int k) {
 	cout << "Inside GTStoreManager::init()\n";
 	cout << "N = " << n << " K = " << k << "\n";
-	this->num_parts = n;
+	this->num_buckets = n;
 	this->rep_factor = k;
 	string server_addr("0.0.0.0:50051"); // this is the IP that "Manager" is hosted on
 	ManagerService service(this);
@@ -243,7 +244,7 @@ void GTStoreManager::init(int n, int k) {
 
 int main(int argc, char **argv) {
 	GTStoreManager manager;
-	int n = DEF_PART_COUNT;
+	int n = DEF_BUCKET_COUNT;
 	int k = DEF_REP;
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--nodes") == 0) {
