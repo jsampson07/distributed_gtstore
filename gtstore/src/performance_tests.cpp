@@ -26,11 +26,8 @@ void run_throughput_test(int client_id, int num_ops) {
         if (i % 2 == 0) { // this is how we write 1/2 reads 1/2 writes (every other read/write)
             client.put(key, value_vec);
         } else { // here we read (get)
-            int prev_idx = 0; // we use prev_idx to read data we know is there and actually just wrote
+            int prev_idx = i-1; // we use prev_idx to read data we know is there and actually just wrote
                                 // we know it will be there bc we will not resume from previous .put() until it returns successfully!!!
-            if (i > 0) {
-                prev_idx = i-1;
-            }
             string read_key = "key_" + to_string(prev_idx);
             client.get(read_key);
         }
@@ -48,7 +45,7 @@ void run_throughput_test(int client_id, int num_ops) {
     cout << "\n========================================\n";
     cout << "Total time ran: " << seconds << " secs\n";
     cout << "Throughput: " << throughput << " Ops/sec\n";
-    cout << "========================================\n";
+    cout << "==========================================\n";
 
     client.finalize();
 }
@@ -80,7 +77,7 @@ void run_load_balance_test(int client_id, int num_ops, int num_nodes) {
         int target_node = get_bucket_id(key, num_nodes);
         key_counts[target_node]++; // we increase the key count for the node and we keep doing this
 
-        if (i % 10000 == 0 && i > 0) {
+        if (i % 10000 == 0 && i > 0) { // this is for TAs convenience
             cout << "Inserted " << i << " keys so far\n";
         }
     }
@@ -88,6 +85,7 @@ void run_load_balance_test(int client_id, int num_ops, int num_nodes) {
     cout << "Node ID | Key Count | Distribution\n";
     cout << "--------|-----------|-------------\n";
 
+    // this is to print the histogram
     int scale = 500;
     for (int i = 0; i < num_nodes; i++) {
         int count = key_counts[i];

@@ -60,7 +60,7 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 		Status status = stub->Put(&context, req, &resp);
 	}
 	bucket->bucket_mutex.unlock();
-	cout << "We have successfully transfered all the data\n";
+	//cout << "We have successfully transfered all the data\n";
 	resp->set_success(true);
 	return Status::OK;
 }

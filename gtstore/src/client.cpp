@@ -1,6 +1,10 @@
 #include "gtstore.hpp"
 
-// WHAT IS THIS FUNCTION DOING?????????? WHAT AM I STORING?????????????
+/**
+ * This is to create a new channel if not found, otherwise let's use the same one we created before
+ * This avoids having to create a new connection everytime we want perform some node behavior
+ * @return pointer to the Stub
+ */
 gtstore::StorageService::Stub* GTStoreClient::get_node_stub(string addr) {
 	if (node_stubs.find(addr) == node_stubs.end()) {
 		std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());

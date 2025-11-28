@@ -1,8 +1,13 @@
 #include "gtstore.hpp"
 #include <cstring>
 
+/**
+ * This is how the Manager "registers" a Node
+ * Manager sends a response back to the Node with information such as node_id, if creation was successful, and buket count for the node (same across all nodes)
+ * @return Status
+ */
 Status GTStoreManager::ManagerService::Register(ServerContext *context, const gtstore::RegisterNodeRequest *req, gtstore::RegisterNodeResponse *resp) {
-	parent->node_mutex.lock();
+	parent->node_mutex.lock(); // to ensure multiple clients can only create nodes one at a time
 	int id = parent->next_node_id;
 	parent->next_node_id++;
 	NodeMeta new_node;
@@ -23,11 +28,14 @@ Status GTStoreManager::ManagerService::Register(ServerContext *context, const gt
 	return Status::OK;
 }
 
+/**
+ * This function is to get the Node corresponding to a key (whether a user wants to create a new key-val pair or access data)
+ * @return Status
+ */
 Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, const gtstore::GetNodeForKeyRequest *req, gtstore::GetNodeForKeyResponse *resp) {
-	parent->node_mutex.lock();	
-	vector<int> node_arr; // this is to get ONLY the nodes which are "active"
+	parent->node_mutex.lock(); // we want to lock to make sure no other nodes get accessed while we are trying to select nodes to use to store or retrieve
+	vector<int> node_arr; // get all nodes on the system (but just their node IDs)
 	std::map<int, NodeMeta>::iterator iterator;
-	// now let's iterate and get only those nodes which are "alive" according to the "Manager"
 	for (iterator = parent->nodes.begin(); iterator != parent->nodes.end(); iterator++) {
 		node_arr.push_back(iterator->first);
 	}
@@ -35,15 +43,15 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		parent->node_mutex.unlock();
 		return Status(grpc::StatusCode::UNAVAILABLE, "None"); // is there something else I can return??????????
 	}
-	// this is to calculate where to place the data in the particular node
-	int bucket_id = get_bucket_id(req->key(), parent->num_buckets);
-	int node_arr_size = node_arr.size();
-	int start = bucket_id % node_arr_size; // why do we need this line???
+	int bucket_id = get_bucket_id(req->key(), parent->num_buckets); // this is to calculate correct bucket corresponding to the key hashed
+	int node_arr_size = (int) node_arr.size();
+	int start = bucket_id;
 	int num_reps = parent->rep_factor;
-	int count = 0;
+	int count = 0; // this is the number of nodes we have gone through (we always want K nodes of data or try to because of the number of replicas)
+					// we only disobey this if the number of nodes on our system is less than the number of replicas (bc nodes were killed)
 	int num_nodes_found = 0; // once this is num_reps then we know we have iterated our "K" factor of times
-	while (num_nodes_found < num_reps && count < (int) node_arr_size) {
-		int curr_idx = (start + count) % node_arr_size;
+	while (num_nodes_found < num_reps && count < node_arr_size) {
+		int curr_idx = (start + count) % node_arr_size; // we start at "start" too because we want to count our current node as a "replica (K)"
 		int curr_node_id = node_arr[curr_idx];
 		// if the node is MARKED alive, do we want to add the node as a possible node for the key
 		// first check if exists though
@@ -86,18 +94,24 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	return Status::OK;
 }
 
+/**
+ * This is to continuously poll ALL the nodes to check "liveness"
+ * Based on if Manager receives a response for the particular node, if after 1 sec (assumed to be enough time for network call w/out being overly cautious)
+ * 		... there is no response, then assumed to be dead, mark the node as "not alive"
+ * Calls handle_node_failure() if node(s) failed
+ */
 void GTStoreManager::check_nodes() {
 	// we want this to be infinite loop, always keep checking
 	while (true) {
 		sleep(3); // let's just check all nodes status's every 3 secs
 		vector<NodeMeta> checked;
-		node_mutex.lock(); // is this right???????
+		node_mutex.lock(); // we want to make sure no one else can change "nodes" DS while iterating through
 		std::map<int, NodeMeta>::iterator iterator;
 		for (iterator = nodes.begin(); iterator != nodes.end(); iterator++) {
 			checked.push_back(iterator->second);
 		}
-		node_mutex.unlock(); // is this right??????????
-		for (size_t i = 0; i < checked.size(); i++) {
+		node_mutex.unlock();
+		for (int i = 0; i < (int) checked.size(); i++) {
 			NodeMeta curr_node = checked[i];
 			// the way i have designed this is the Manager only after realizing that the node is dead, sets this field to false
 			// so.... if already false by the time we enter this loop, we already knew it was dead
@@ -111,31 +125,98 @@ void GTStoreManager::check_nodes() {
 			gtstore::PingResponse resp;
 			Status status = curr_node.stub->Ping(&context, req, &resp);
 			if (!status.ok()) { // if we do not get an "OK" status, then we failed (dead)
-				node_mutex.lock(); // IS THIS RIGHT????
+				node_mutex.lock();
 				if (nodes[curr_node.id].is_alive) {
-					// NOW WE know that we have a dead node because it has been marked as alive but is not responding
 					nodes[curr_node.id].is_alive = false;
 					handle_node_failure(curr_node.id); // now we want to handle the node failure and replicate its data onto other node(s)
 													// while also maintaining the "sharding" behavior
 				}
-				node_mutex.unlock(); // NOT SURE IF THIS SI RIGHT OR DO I NEED "parent"???
+				node_mutex.unlock();
 			}
 		}
 	}
 }
 
 void GTStoreManager::handle_node_failure(int dead_node_id) {
-	cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
+	//cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
 	int bucket_lost = dead_node_id % num_buckets;
-	int backup_id = -1;
-	int target_id = -1;
+	//int backup_id = -1;
+	//int target_id = -1;
 
 	vector<int> nodes_arr;
 	std::map<int, NodeMeta>::iterator iterator;
+	node_mutex.lock();
 	for (iterator = nodes.begin(); iterator != nodes.end(); iterator++) {
 		nodes_arr.push_back(iterator->first);
 	}
+	node_mutex.unlock();
 
+	for (int i = 0; i < rep_factor; i++) {
+		// now we want to find the bucket we want to fix (bucket that stored replica data on the dead node)
+		// 'i' represents the bucket BEFORE the dead node (because we store replicas from the 'primary node' up (by +1))
+			// so Node 2 would store Node 1 replica data (in bucket 1)
+		int bucket_to_fix = (dead_node_id - i + num_buckets) % num_buckets;
+		int backup_id = -1;
+		int target_id = -1;
+		//cout << "Currently looking at bucket ID: " << bucket_to_fix << " data to rep\n";
+		int total_nodes = (int) nodes.size();
+		for (int j = 0; j < total_nodes; j++) {
+			int idx = (bucket_to_fix + j) % total_nodes;
+			int possible_id = nodes_arr[idx];
+			// MUST be alive and canNOT be the dead NODE!!!!
+			if (nodes[possible_id].is_alive) {
+				backup_id = possible_id; // this is the node we will copy data from to our future "target_id"
+				break;
+			}
+		}
+		int counter = 0; // we want to copy data over to the Kth node
+		// now let's find a node that SHOULD be the new "replica" for curr data/node
+		for (int j = 0; j < total_nodes; j++) {
+			int idx = (bucket_to_fix + j) % total_nodes;
+			int possible_id = nodes_arr[idx];
+			if (nodes[possible_id].is_alive) {
+				counter++;
+				// kth alive node so this will be our new replica
+				if (counter == rep_factor) {
+					target_id = possible_id;
+				}
+			}
+		}
+
+		// bc of the above logic, this will not work when we have less nodes than our replication factor (K) data as mentioned before
+		
+		if (backup_id == target_id) {
+			//cout << "K=1 meaning no backup exists. Data is lost forever. Part of the project as mentioned by a Piazza post.\n";
+			//return;
+			//cout << "SKIPPED\n";
+			continue;
+		}
+		
+		if (backup_id != -1 && target_id != -1) {
+			// let's recover !
+			grpc::ClientContext context;
+			gtstore::TransferDataRequest req;
+			gtstore::TransferDataResponse resp;
+			// let's get the addr of the target to tell the backup node to send data to this
+			string target_addr = nodes[target_id].addr;
+			req.set_dest_addr(target_addr);
+			req.set_bucket_id(bucket_to_fix);
+
+			// now actually do the work
+			Status status = nodes[backup_id].stub->TransferData(&context, req, &resp);
+			if (status.ok()) {
+				//cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
+			} else {
+				//cout << "Recovery failed!!!\n";
+			}
+		} else {
+			//cout << "No backup or target node found\n";
+		}
+	}
+
+
+
+	/*
 	int total_nodes = nodes.size();
 	for (int i = 0; i < total_nodes; i++) {
 		int idx = (dead_node_id + i) % total_nodes;
@@ -146,6 +227,8 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 			break;
 		}
 	}
+	*/
+
 
 	/*
 	int total_nodes = nodes.size();
@@ -165,6 +248,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 	*/
 
 
+	/*
 	int counter = 0;
 	for (int i = 1; i < (int) total_nodes; i++) {
 		int idx = (dead_node_id + i) % total_nodes;
@@ -180,11 +264,14 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 			}
 		}
 	}
+	*/
 
+	/*
 	if (backup_id == target_id) { // this is to check if our rep factor is 1, in which case the backup and target would be the same
 		cout << "K=1 meaning no backup exists. Data is lost forever. Part of the project as mentioned by a Piazza post.\n";
 		return;
 	}
+	*/
 
 
 	/* 1) node is alive
@@ -194,40 +281,18 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 	std::map<int, NodeMeta>::iterator iterator2;
 	for (iterator2 = nodes.begin(); iterator2 != nodes.end(); iterator2++) {
 		int maybe_target = iterator2->first;
-		NodeMeta curr_node = iterator2->second; // is this correct syntax?????????????????????????????????????????/
+		NodeMeta curr_node = iterator2->second;
 		if (curr_node.is_alive && (maybe_target != backup_id) && (maybe_target != dead_node_id)) {
 			target_id = maybe_target;
 			break;
 		}
 	}
 	*/
-
-	// now we have to transfer the data the dead node had to the target node
-	if (backup_id != -1 && target_id != -1) {
-		// let's recover !
-		grpc::ClientContext context;
-		gtstore::TransferDataRequest req;
-		gtstore::TransferDataResponse resp;
-		// let's get the addr of the target to tell the backup node (with the replica data) to send data there
-		string target_addr = nodes[target_id].addr;
-		req.set_dest_addr(target_addr);
-		req.set_bucket_id(bucket_lost);
-
-		// now lets get the backup node (which contains the replica data of the dead node) to send data over to the target node
-		Status status = nodes[backup_id].stub->TransferData(&context, req, &resp);
-		if (status.ok()) {
-			cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
-		} else {
-			cout << "Recovery failed!!!\n";
-		}
-	} else {
-		cout << "No backup or target node found\n";
-	}
 }
 
 void GTStoreManager::init(int n, int k) {
 	cout << "Inside GTStoreManager::init()\n";
-	cout << "N = " << n << " K = " << k << "\n";
+	cout << "Number of Nodes (N) = " << n << "Replication Factor (K) = " << k << "\n";
 	this->num_buckets = n;
 	this->rep_factor = k;
 	string server_addr("0.0.0.0:50051"); // this is the IP that "Manager" is hosted on

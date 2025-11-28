@@ -30,7 +30,7 @@ echo "Now let's overwrite some keys are told by project test description"
 echo -e "Now kill 2 nodes\n"
 pkill -9 -f "port 50053"
 pkill -9 -f "port 50056"
-sleep 5 # to play it safe let's wait 5 seconds to allow manager to detect the dead nodes before moving on
+sleep 6 # to play it safe let's wait 5 seconds to allow manager to detect the dead nodes before moving on
 
 echo "NOTE: expected key-value pairs are as follows..."
 echo "<key1, val1>, <key2, va2>, <key3, val3>, ..., <key20, val20>"
