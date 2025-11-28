@@ -41,7 +41,7 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	}
 	if (node_arr.empty()) {
 		parent->node_mutex.unlock();
-		return Status(grpc::StatusCode::UNAVAILABLE, "None"); // is there something else I can return??????????
+		return Status(grpc::StatusCode::UNAVAILABLE, "None");
 	}
 	int bucket_id = get_bucket_id(req->key(), parent->num_buckets); // this is to calculate correct bucket corresponding to the key hashed
 	int node_arr_size = (int) node_arr.size();
@@ -125,13 +125,11 @@ void GTStoreManager::check_nodes() {
 			gtstore::PingResponse resp;
 			Status status = curr_node.stub->Ping(&context, req, &resp);
 			if (!status.ok()) { // if we do not get an "OK" status, then we failed (dead)
-				node_mutex.lock();
 				if (nodes[curr_node.id].is_alive) {
 					nodes[curr_node.id].is_alive = false;
 					handle_node_failure(curr_node.id); // now we want to handle the node failure and replicate its data onto other node(s)
 													// while also maintaining the "sharding" behavior
 				}
-				node_mutex.unlock();
 			}
 		}
 	}
@@ -205,12 +203,12 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 			// now actually do the work
 			Status status = nodes[backup_id].stub->TransferData(&context, req, &resp);
 			if (status.ok()) {
-				//cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
+				cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
 			} else {
-				//cout << "Recovery failed!!!\n";
+				cout << "Recovery failed!!!\n";
 			}
 		} else {
-			//cout << "No backup or target node found\n";
+			cout << "No backup or target node found\n";
 		}
 	}
 
@@ -292,13 +290,13 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 
 void GTStoreManager::init(int n, int k) {
 	cout << "Inside GTStoreManager::init()\n";
-	cout << "Number of Nodes (N) = " << n << "Replication Factor (K) = " << k << "\n";
+	cout << "Number of Nodes (N) = " << n << " Replication Factor (K) = " << k << "\n";
 	this->num_buckets = n;
 	this->rep_factor = k;
 	string server_addr("0.0.0.0:50051"); // this is the IP that "Manager" is hosted on
 	ManagerService service(this);
 	ServerBuilder builder;
-	builder.AddListeningPort(server_addr, grpc::InsecureServerCredentials()); // what is this doing??? INSECURESERVERCREDENTIALS??
+	builder.AddListeningPort(server_addr, grpc::InsecureServerCredentials());
 	builder.RegisterService(&service);
 	std::unique_ptr<Server> server(builder.BuildAndStart());
 

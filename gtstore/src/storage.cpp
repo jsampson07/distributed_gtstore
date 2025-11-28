@@ -1,5 +1,9 @@
 #include "gtstore.hpp"
 
+/**
+ * Puts the key value pair into the bucket's "data_map"
+ * @return Status
+ */
 Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore::PutRequest *req, gtstore::PutResponse *resp) {
 	if (parent->num_buckets == 0) {
 		return Status(grpc::StatusCode::FAILED_PRECONDITION, "We have no buckets");
@@ -8,8 +12,8 @@ Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore
 	int bucket_id = get_bucket_id(key, parent->num_buckets);
 	Bucket *bucket = parent->buckets[bucket_id].get();
 	// now we will write the data to this bucket
-	bucket->bucket_mutex.lock();
 	val_t value = convert_from_protobuf(req->value()); 
+	bucket->bucket_mutex.lock();
 	// now that we have the key and value from the request, let's add it to our respective buckets map
 	bucket->data_map[key] = value;
 	resp->set_success(true);
@@ -17,6 +21,10 @@ Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore
 	return Status::OK;
 }
 
+/**
+ * Retrieves the value from the key provided
+ * @return Status
+ */
 Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore::GetRequest *req, gtstore::GetResponse *resp) {
 	if (parent->num_buckets == 0) {
 		return Status(grpc::StatusCode::FAILED_PRECONDITION, "We have no buckets");
@@ -26,7 +34,7 @@ Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore
 	Bucket *bucket = parent->buckets[bucket_id].get(); // get the data
 	// now that we are accessing data from the partition, we do not want to be able to write to it right now
 	bucket->bucket_mutex.lock();
-	if (bucket->data_map.find(key) != bucket->data_map.end()) { // WHAT THE FUCK IS THIS DOING??????????
+	if (bucket->data_map.find(key) != bucket->data_map.end()) {
 		// now lets set the fields in the response for client
 		resp->set_key(key);
 		convert_to_protobuf(bucket->data_map[key], resp->mutable_value());
@@ -38,6 +46,10 @@ Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore
 	return Status::OK;
 }
 
+/**
+ * Used to transfer the data from one node to the intended ("target") node
+ * @return Status
+ */
 Status GTStoreStorage::StorageService::TransferData(ServerContext* context, const gtstore::TransferDataRequest *req, gtstore::TransferDataResponse *resp) {
 	string target = req->dest_addr(); // this is to get the destination address passed in by the request
 	int bucket_id = req->bucket_id();
@@ -53,7 +65,6 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 		grpc::ClientContext context;
 		gtstore::PutRequest req;
 		gtstore::PutResponse resp;
-		// let's set our key and value "values" in our request to the "target" node
 		req.set_key(iterator->first); // note that ->first is the key and ->second is the value
 		convert_to_protobuf(iterator->second, req.mutable_value()); // turn into format for protocol buffer
 
@@ -65,9 +76,9 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 	return Status::OK;
 }
 
-// this is all the storage node has to do when responding to a Ping request from the Manager (respond to server)
+// this is all the storage node has to do when responding to a Ping request from the Manager (respond to server) --> acknowledge!
 Status GTStoreStorage::StorageService::Ping(ServerContext *context, const gtstore::PingRequest *req, gtstore::PingResponse *resp) {
-	resp->set_ack(true); // acknowledge that it is true
+	resp->set_ack(true);
 	return Status::OK;
 }
 
