@@ -6,7 +6,7 @@
  */
 Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore::PutRequest *req, gtstore::PutResponse *resp) {
 	if (parent->num_buckets == 0) {
-		return Status(grpc::StatusCode::FAILED_PRECONDITION, "We have no buckets");
+		return Status(grpc::StatusCode::OUT_OF_RANGE, "We have no buckets");
 	}
 	string key = req->key(); // get the key value
 	int bucket_id = get_bucket_id(key, parent->num_buckets);
@@ -27,7 +27,7 @@ Status GTStoreStorage::StorageService::Put(ServerContext *context, const gtstore
  */
 Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore::GetRequest *req, gtstore::GetResponse *resp) {
 	if (parent->num_buckets == 0) {
-		return Status(grpc::StatusCode::FAILED_PRECONDITION, "We have no buckets");
+		return Status(grpc::StatusCode::OUT_OF_RANGE, "We have no buckets");
 	}
 	string key = req->key(); // the key from the request (this is the infomration that the Client wants to get)
 	int bucket_id = get_bucket_id(key, parent->num_buckets);
@@ -71,7 +71,7 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 		Status status = stub->Put(&context, req, &resp);
 	}
 	bucket->bucket_mutex.unlock();
-	//cout << "We have successfully transfered all the data\n";
+	cout << "We have successfully transfered all the data\n";
 	resp->set_success(true);
 	return Status::OK;
 }
@@ -93,7 +93,7 @@ void GTStoreStorage::init(int port) {
 	std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 	if (!server) {
 		cout << "Failed to bind to address: " << my_addr << "\n";
-		exit(1);
+		return;
 	}
 	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(man_addr, grpc::InsecureChannelCredentials());
 	manager_stub = gtstore::ManagerService::NewStub(channel);
@@ -105,6 +105,7 @@ void GTStoreStorage::init(int port) {
 	Status status = manager_stub->Register(&context, req, &resp);
 	if (!status.ok()) {
 		cout << "WE FAILED to Register Node! Womp Womp\n";
+		return;
 	}
 	node_id = resp.node_id();
 	num_buckets = resp.bucket_count();

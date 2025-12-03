@@ -1,7 +1,5 @@
 #include "gtstore.hpp"
 #include <chrono>
-#include <vector>
-#include <map>
 #include <iomanip>
 
 using namespace std;
@@ -22,7 +20,7 @@ void run_throughput_test(int client_id, int num_ops) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < num_ops; i++) {
-        string key = "key_" + to_string(i); // now let's create a unique key --> we knwo i will change use as uniqueness
+        string key = "key_" + to_string(i); // now let's create a unique key --> we knwo "i" will change, can just use as uniqueness
         if (i % 2 == 0) { // this is how we write 1/2 reads 1/2 writes (every other read/write)
             client.put(key, value_vec);
         } else { // here we read (get)
@@ -40,7 +38,7 @@ void run_throughput_test(int client_id, int num_ops) {
     std::chrono::duration<double> time_elapsed = end_time - start_time;
     double seconds = time_elapsed.count();
     
-    double throughput = num_ops / seconds; // this is the calculation we care about (Ops/sec) --> will plot over num of replicas
+    double throughput = num_ops / seconds; // this is the calculation we care about (Ops/sec) --> will plot over num of replicas in graph
 
     cout << "\n========================================\n";
     cout << "Total time ran: " << seconds << " secs\n";
@@ -86,6 +84,7 @@ void run_load_balance_test(int client_id, int num_ops, int num_nodes) {
     cout << "--------|-----------|-------------\n";
 
     // this is to print the histogram
+    // NOTE: one "#" represents 500 keys
     int scale = 500;
     for (int i = 0; i < num_nodes; i++) {
         int count = key_counts[i];
@@ -99,19 +98,22 @@ void run_load_balance_test(int client_id, int num_ops, int num_nodes) {
 }
 
 int main(int argc, char** argv) {
-    // Basic check for command line arguments
     if (argc < 2) {
         cout << "Please write the commands as follows: \n";
-        cout << "  ./bin/perf_test throughput <num_nodes>\n";
-        cout << "  ./bin/perf_test loadbalance <num_nodes>\n";
+        cout << "  ./bin/performance_test throughput\n";
+        cout << "  ./bin/performance_test loadbalance <num_nodes>\n";
         return 1;
     }
     string mode = argv[1];
-    int num_nodes = 7; // Default to 7 nodes as per spec
+    int num_nodes = 7; // hard coded based on tests provided
 
-    if (mode == "throughput") { // Run throughput test with 200,000 operations
+    if (argc > 2) {
+        num_nodes = atoi(argv[2]);
+    }
+
+    if (mode == "throughput") {
         run_throughput_test(420, 200000); 
-    } else if (mode == "loadbalance") { // Run load balance test with 100,000 inserts
+    } else if (mode == "loadbalance") {
         run_load_balance_test(67, 100000, num_nodes); 
     } else {
         cout << "Unknown mode: " << mode << endl;

@@ -41,7 +41,7 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	}
 	if (node_arr.empty()) {
 		parent->node_mutex.unlock();
-		return Status(grpc::StatusCode::UNAVAILABLE, "None");
+		return Status(grpc::StatusCode::UNAVAILABLE, "No nodes");
 	}
 	int bucket_id = get_bucket_id(req->key(), parent->num_buckets); // this is to calculate correct bucket corresponding to the key hashed
 	int node_arr_size = (int) node_arr.size();
@@ -67,8 +67,7 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		return Status(grpc::StatusCode::UNAVAILABLE, "There are no nodes in the system...");
 	}
 	
-	/*
-	// I DO NOT THINK WE NEED THIS SECTION BUT SURE!!!!!!!! FOR NOW! CHECK LATER
+	/* OLD CODE SNIPPET
 	// now we want K copies but what if we only have < K nodes right now??? i.e. on initialization
 	int needed;
 	if (parent->rep_factor > (int) running_nodes.size()) {
@@ -113,7 +112,7 @@ void GTStoreManager::check_nodes() {
 		node_mutex.unlock();
 		for (int i = 0; i < (int) checked.size(); i++) {
 			NodeMeta curr_node = checked[i];
-			// the way i have designed this is the Manager only after realizing that the node is dead, sets this field to false
+			// the way this is designed is the  Manager only after realizing that the node is dead, sets this field to false
 			// so.... if already false by the time we enter this loop, we already knew it was dead
 			if (!curr_node.is_alive) {
 				continue;
@@ -128,7 +127,6 @@ void GTStoreManager::check_nodes() {
 				if (nodes[curr_node.id].is_alive) {
 					nodes[curr_node.id].is_alive = false;
 					handle_node_failure(curr_node.id); // now we want to handle the node failure and replicate its data onto other node(s)
-													// while also maintaining the "sharding" behavior
 				}
 			}
 		}
@@ -136,8 +134,7 @@ void GTStoreManager::check_nodes() {
 }
 
 void GTStoreManager::handle_node_failure(int dead_node_id) {
-	//cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
-	int bucket_lost = dead_node_id % num_buckets;
+	cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
 	//int backup_id = -1;
 	//int target_id = -1;
 
@@ -156,12 +153,12 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 		int bucket_to_fix = (dead_node_id - i + num_buckets) % num_buckets;
 		int backup_id = -1;
 		int target_id = -1;
-		//cout << "Currently looking at bucket ID: " << bucket_to_fix << " data to rep\n";
+		//cout << "Currently looking at bucket ID: " << bucket_to_fix << "'s data to rep\n";
 		int total_nodes = (int) nodes.size();
 		for (int j = 0; j < total_nodes; j++) {
 			int idx = (bucket_to_fix + j) % total_nodes;
 			int possible_id = nodes_arr[idx];
-			// MUST be alive and canNOT be the dead NODE!!!!
+			// MUST be alive 
 			if (nodes[possible_id].is_alive) {
 				backup_id = possible_id; // this is the node we will copy data from to our future "target_id"
 				break;
@@ -191,7 +188,6 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 		}
 		
 		if (backup_id != -1 && target_id != -1) {
-			// let's recover !
 			grpc::ClientContext context;
 			gtstore::TransferDataRequest req;
 			gtstore::TransferDataResponse resp;

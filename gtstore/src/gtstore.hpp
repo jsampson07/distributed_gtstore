@@ -55,7 +55,7 @@ inline int get_bucket_id(string key, int num_buckets) {
 	std::hash<std::string> hash; // this is used for the hashing
 	// then we want to hash the key and then place it in its respective "bucket" based on the modulo
 	size_t hash_val = hash(key);
-	int result = hash_val%num_buckets;
+	int result = hash_val % num_buckets;
 	return result;
 }
 
@@ -100,7 +100,6 @@ class GTStoreManager {
 				};
 				// list of all nodes that exist on our system
 				std::thread monitor_thread; // this is used to send "ping" requests
-				//these will be given my CML --> --partitions --replications or something flags
 
 				void check_nodes(); // this is to consistently ping nodes for alive/dead status checks
 				void handle_node_failure(int node_id); // if a node has crashed or died, this is the handler for it
@@ -150,7 +149,7 @@ class GTStoreStorage {
 						- on Node 2, replica data for a node, will be located in bucket # = node #
 							- for Node 2, if NOT bucket[2] then we are looking at possible replica data if bucket is NON empty */
 				vector<unique_ptr<Bucket>> buckets; // this is used to enable recovering a dead node's data and replicating it a lot easier
-				//std::mutex store_mutex; took this out bc now we have the mutexes for each bucket in the node
+				//std::mutex mutex; took this out bc now we have the mutexes for each bucket in the node
 				unique_ptr<gtstore::ManagerService::Stub> manager_stub; // this is what allows us to connect to the "Manager"
 		public:
 				void init(int port);
