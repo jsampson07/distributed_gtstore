@@ -30,9 +30,9 @@ Status GTStoreManager::ManagerService::Register(ServerContext *context, const gt
  * @return Status
  */
 Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, const gtstore::GetNodeForKeyRequest *req, gtstore::GetNodeForKeyResponse *resp) {
-	parent->node_mutex.lock(); // we want to lock to make sure no other nodes get accessed while we are trying to select nodes to use to store or retrieve
 	vector<int> node_arr; // get all nodes on the system (but just their node IDs)
 	std::map<int, NodeMeta>::iterator iterator;
+	parent->node_mutex.lock();
 	for (iterator = parent->nodes.begin(); iterator != parent->nodes.end(); iterator++) {
 		node_arr.push_back(iterator->first);
 	}
@@ -40,6 +40,7 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		parent->node_mutex.unlock();
 		return Status(grpc::StatusCode::UNAVAILABLE, "No nodes");
 	}
+	parent->node_mutex.unlock();
 	int bucket_id = get_bucket_id(req->key(), parent->num_buckets);
 	int node_arr_size = (int) node_arr.size();
 	int start = bucket_id;
@@ -51,16 +52,15 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	while (num_nodes_found < num_reps && count < node_arr_size) {
 		int curr_idx = (start + count) % node_arr_size; // we start at "start" too because we want to count our current node as a "replica (K)"
 		int curr_node_id = node_arr[curr_idx];
-		// if the node is MARKED alive, do we want to add the node as a possible node for the key
-		// first check if exists though
+		parent->node_mutex.lock();
 		if (parent->nodes.count(curr_node_id) && parent->nodes[curr_node_id].is_alive) {
 			resp->add_replica_addrs(parent->nodes[curr_node_id].addr);
 			resp->add_replica_ids(curr_node_id);
 			num_nodes_found++;
 		}
+		parent->node_mutex.unlock();
 		count++;
 	}
-	parent->node_mutex.unlock();
 
 	return Status::OK;
 }
