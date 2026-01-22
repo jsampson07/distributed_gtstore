@@ -32,7 +32,7 @@ using grpc::Server;
 
 typedef vector<string> val_t;
 
-// this is to ensure that we can send data to the network in an understood manner (gRPC msg format)
+// To send data to another system (it can read it too)
 inline void convert_to_protobuf(const val_t &src, gtstore::Value *dest) {
 	for (int i = 0; i < src.size(); i++) {
 		string str = src[i];
@@ -40,7 +40,7 @@ inline void convert_to_protobuf(const val_t &src, gtstore::Value *dest) {
 	}
 }
 
-// now when we recevie data from the network, we want to convert it back itno a vector that we can use
+// To retrieve data from another system and read it properly and work w/ it in way we expect
 inline val_t convert_from_protobuf(const gtstore::Value &src) {
 	val_t value;
 	for (int i = 0; i < src.items_size(); i++) {
@@ -50,10 +50,14 @@ inline val_t convert_from_protobuf(const gtstore::Value &src) {
 	return value;
 }
 
-// this function will calculate which partition (bucket) to place a key ==> SHARDING !!!!!!!
+/**
+ * Canonical shard index
+ * Bucket ID ~= Primary Node ID given (node ids are 0...N-1 and num_buckets == N)
+ * Key will always hash to the same Node ID, hence it essentially is giving us the Primary Node ID
+ * B/c of bucket<==>node one-to-one correspondence, they are equal
+ */
 inline int get_bucket_id(string key, int num_buckets) {
-	std::hash<std::string> hash; // this is used for the hashing
-	// then we want to hash the key and then place it in its respective "bucket" based on the modulo
+	std::hash<std::string> hash;
 	size_t hash_val = hash(key);
 	int result = hash_val % num_buckets;
 	return result;
@@ -63,14 +67,11 @@ inline int get_bucket_id(string key, int num_buckets) {
 class GTStoreClient {
 		private:
 				int client_id;
-				// this is how we can communicate with the manager
 				unique_ptr<gtstore::ManagerService::Stub> manager_stub;
-				// this is a way for us to interact with the storage nodes
-				// in this case the key is the IP addr of the node, and value = the stub
+				// <Node_IPAddr, stub>
 				map<string, unique_ptr<gtstore::StorageService::Stub>> node_stubs;
-				// this is a function that is used to find the correct connection to interact with
+				// Retrieves the correct stub for the node client is directed to
 				gtstore::StorageService::Stub *get_node_stub(string address);
-				//val_t value;
 		public:
 				void init(int id);
 				void finalize();
@@ -78,19 +79,16 @@ class GTStoreClient {
 				bool put(string key, val_t value);
 };
 
-// this is info for a storage node
+// Stores metadata for a Storage Node
 struct NodeMeta {
 	int id;
 	string addr;
 	bool is_alive;
-	// this is used by the manager to connect to the node (used for "pings")
-		// what else???
 	shared_ptr<gtstore::StorageService::Stub> stub;
 };
 
 class GTStoreManager {
 		private:
-				// handles incoming requests for the manager
 				class ManagerService final:public gtstore::ManagerService::Service {
 						GTStoreManager *parent; // used to access vars in main class
 						public:
@@ -98,32 +96,34 @@ class GTStoreManager {
 								Status Register(ServerContext *context, const gtstore::RegisterNodeRequest *req, gtstore::RegisterNodeResponse *resp) override;
 								Status GetNodeForKey(ServerContext *context, const gtstore::GetNodeForKeyRequest* req, gtstore::GetNodeForKeyResponse* resp) override;
 				};
-				// list of all nodes that exist on our system
-				std::thread monitor_thread; // this is used to send "ping" requests
+				std::thread monitor_thread; // background heartbeat thread --> send ping requests to ALL nodes in time intervals
 
-				void check_nodes(); // this is to consistently ping nodes for alive/dead status checks
-				void handle_node_failure(int node_id); // if a node has crashed or died, this is the handler for it
-					// ==> WE must copy over its contents from some other node to another node that is free
+				void check_nodes(); // continuously executed by background thread (indefinitely)
+				void handle_node_failure(int node_id);
 		public:
 				std::map<int, NodeMeta> nodes;
+				// Used when modifying + reading "nodes" metadata
 				std::mutex node_mutex;
-				int next_node_id = 0; // id for the next created node
+				int next_node_id = 0;
 				int num_buckets; // number of partitions
-				int rep_factor; // number of replicas
+				int rep_factor; // number of replicas (replication)
 				// initializes the default values
 				GTStoreManager() : num_buckets(DEF_BUCKET_COUNT), rep_factor(DEF_REP) {}
-				void init(int n, int k); // accepts n nodes and k replicas as cml args
+				void init(int n, int k);
 };
 
-// Buckets
-// here we will put data AND individual locks for each partition so that we cna write to the same node
-	// at once, but not the same partition, before would have costed extreme performance overhead
+/**
+ * Stores data and has individual locks for each partition (bucket)
+ * Fine-grained locking = Bucket-level locking
+ * Allows for writing to multiple buckets on a Node concurrently
+ * Better iteration than previous: Node level locking
+ */
+
 struct Bucket {
 	std::unordered_map<string, val_t> data_map; // this stores the actual data (key,val pairs)
 	std::mutex bucket_mutex; // mutex for each of the buckets so that we can still write to the current NODE
 };
 
-// storage info
 class GTStoreStorage {
 		private:
 				class StorageService final:public gtstore::StorageService::Service {
@@ -149,7 +149,6 @@ class GTStoreStorage {
 						- on Node 2, replica data for a node, will be located in bucket # = node #
 							- for Node 2, if NOT bucket[2] then we are looking at possible replica data if bucket is NON empty */
 				vector<unique_ptr<Bucket>> buckets; // this is used to enable recovering a dead node's data and replicating it a lot easier
-				//std::mutex mutex; took this out bc now we have the mutexes for each bucket in the node
 				unique_ptr<gtstore::ManagerService::Stub> manager_stub; // this is what allows us to connect to the "Manager"
 		public:
 				void init(int port);

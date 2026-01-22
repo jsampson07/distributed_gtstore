@@ -14,12 +14,9 @@ Status GTStoreManager::ManagerService::Register(ServerContext *context, const gt
 	new_node.id = id;
 	new_node.addr = req->address();
 	new_node.is_alive = true;
-	// this is to create the connection channel
 	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(new_node.addr, grpc::InsecureChannelCredentials());
-	// now let's create the stub, the connection we will use for the manager to communicate with the node
 	new_node.stub = gtstore::StorageService::NewStub(channel);
-	parent->nodes[id] = new_node; // let's add this node to the map of nodes we have for our system
-	// now the manager provides the response so we need to set its fields which we defined in the .proto file
+	parent->nodes[id] = new_node;
 	resp->set_node_id(id);
 	resp->set_success(new_node.is_alive);
 	resp->set_bucket_count(parent->num_buckets);
@@ -66,29 +63,6 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	if (count == 0) {
 		return Status(grpc::StatusCode::UNAVAILABLE, "There are no nodes in the system...");
 	}
-	
-	/* OLD CODE SNIPPET
-	// now we want K copies but what if we only have < K nodes right now??? i.e. on initialization
-	int needed;
-	if (parent->rep_factor > (int) running_nodes.size()) {
-		needed = (int) running_nodes.size();
-	} else {
-		needed = parent->rep_factor;
-	}
-	
-	
-	// now we want to select these "K" nodes from our start
-	// let's write to the primary and the "Backup" nodes
-	for (int i = 0; i < needed; i++) {
-		int idx = (start + i) % running_nodes.size(); // this is for "wrap-around" behavior
-		int curr_node = running_nodes[idx];
-		resp->add_replica_addrs(parent->nodes[curr_node].addr);
-		resp->add_replica_ids(curr_node);
-	}
-	parent->node_mutex.unlock();
-	*/
-
-
 
 	return Status::OK;
 }
@@ -100,43 +74,51 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
  * Calls handle_node_failure() if node(s) failed
  */
 void GTStoreManager::check_nodes() {
-	// we want this to be infinite loop, always keep checking
 	while (true) {
-		sleep(3); // let's just check all nodes status's every 3 secs
+		sleep(3);
 		vector<NodeMeta> checked;
-		node_mutex.lock(); // we want to make sure no one else can change "nodes" DS while iterating through
-		std::map<int, NodeMeta>::iterator iterator;
+		node_mutex.lock();
 		for (iterator = nodes.begin(); iterator != nodes.end(); iterator++) {
 			checked.push_back(iterator->second);
 		}
 		node_mutex.unlock();
 		for (int i = 0; i < (int) checked.size(); i++) {
 			NodeMeta curr_node = checked[i];
-			// the way this is designed is the  Manager only after realizing that the node is dead, sets this field to false
-			// so.... if already false by the time we enter this loop, we already knew it was dead
 			if (!curr_node.is_alive) {
 				continue;
 			}
 			grpc::ClientContext context;
-			// let's give it 1 second to respond (more than enough time) --> if not within a second --> assumed to be a DEAD node
+			// 1 second to respond --> w/in time window no response? ==> treated as dead
 			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 			gtstore::PingRequest req;
 			gtstore::PingResponse resp;
 			Status status = curr_node.stub->Ping(&context, req, &resp);
-			if (!status.ok()) { // if we do not get an "OK" status, then we failed (dead)
-				if (nodes[curr_node.id].is_alive) {
-					nodes[curr_node.id].is_alive = false;
-					handle_node_failure(curr_node.id); // now we want to handle the node failure and replicate its data onto other node(s)
+			if (!status.ok()) {
+				node_mutex.lock();
+				bool should_handle = false;
+
+				auto it = nodes.find(curr_node.id);
+				if (it != nodes.end() && it->second.is_alive) {
+					it->second.is_alive = false;
+					should_handle = true;
+				}
+				node_mutex.unlock();
+				if (should_handle) {
+					handle_node_failure(curr_node.id)
 				}
 			}
 		}
 	}
 }
 
+/**
+ * Handler for dead nodes
+ * Copies over its contents from some other node to a free node (not currently holding replica data for the node)
+ * @param dead_node_id: id of the dead node
+ */
+
 void GTStoreManager::handle_node_failure(int dead_node_id) {
 	cout << "Handling node failure on Node ID: " << dead_node_id << "\n";
-	//int backup_id = -1;
-	//int target_id = -1;
 
 	vector<int> nodes_arr;
 	std::map<int, NodeMeta>::iterator iterator;
@@ -158,7 +140,6 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 		for (int j = 0; j < total_nodes; j++) {
 			int idx = (bucket_to_fix + j) % total_nodes;
 			int possible_id = nodes_arr[idx];
-			// MUST be alive 
 			if (nodes[possible_id].is_alive) {
 				backup_id = possible_id; // this is the node we will copy data from to our future "target_id"
 				break;
@@ -176,10 +157,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 					target_id = possible_id;
 				}
 			}
-		}
-
-		// bc of the above logic, this will not work when we have less nodes than our replication factor (K) data as mentioned before
-		
+		}		
 		if (backup_id == target_id) {
 			//cout << "K=1 meaning no backup exists. Data is lost forever. Part of the project as mentioned by a Piazza post.\n";
 			//return;
@@ -207,89 +185,20 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 			cout << "No backup or target node found\n";
 		}
 	}
-
-
-
-	/*
-	int total_nodes = nodes.size();
-	for (int i = 0; i < total_nodes; i++) {
-		int idx = (dead_node_id + i) % total_nodes;
-		int possible_id = nodes_arr[idx];
-		// MUST be alive and canNOT be the dead NODE!!!!
-		if (nodes[possible_id].is_alive && possible_id != dead_node_id) {
-			backup_id = possible_id;
-			break;
-		}
-	}
-	*/
-
-
-	/*
-	int total_nodes = nodes.size();
-	// here with the design, the replica data will be in the next Node
-	for (int i = 1; i < total_nodes; i++) {
-		int replica_id = (dead_node_id + i) % total_nodes;
-		// we are not guaranteed that all nodes will exist, but we want to initialize them all at first
-		if (nodes.count(replica_id) && nodes[replica_id].is_alive) {
-			backup_id = replica_id;
-			break;
-		}
-	}
-
-	// now we want to find a target that we can place the dead node's data into
-	// what do we need to check for?
-
-	*/
-
-
-	/*
-	int counter = 0;
-	for (int i = 1; i < (int) total_nodes; i++) {
-		int idx = (dead_node_id + i) % total_nodes;
-		int possible_id = nodes_arr[idx];
-		if (nodes[possible_id].is_alive) {
-			counter++;
-			if (counter == 1) {
-				// this is going to be the backup (where we have the replica data)
-				backup_id = possible_id;
-			}
-			if (counter == rep_factor) {
-				target_id = possible_id;
-			}
-		}
-	}
-	*/
-
-	/*
-	if (backup_id == target_id) { // this is to check if our rep factor is 1, in which case the backup and target would be the same
-		cout << "K=1 meaning no backup exists. Data is lost forever. Part of the project as mentioned by a Piazza post.\n";
-		return;
-	}
-	*/
-
-
-	/* 1) node is alive
-	   2) node is NOT the backup node that we just found */
-
-	/*
-	std::map<int, NodeMeta>::iterator iterator2;
-	for (iterator2 = nodes.begin(); iterator2 != nodes.end(); iterator2++) {
-		int maybe_target = iterator2->first;
-		NodeMeta curr_node = iterator2->second;
-		if (curr_node.is_alive && (maybe_target != backup_id) && (maybe_target != dead_node_id)) {
-			target_id = maybe_target;
-			break;
-		}
-	}
-	*/
 }
+
+/**
+ * Takes in CML arguments and initializes the Manager to handle N nodes and K replicas
+ * @param n: n nodes
+ * @param k: k replicas
+ */
 
 void GTStoreManager::init(int n, int k) {
 	cout << "Inside GTStoreManager::init()\n";
 	cout << "Number of Nodes (N) = " << n << " Replication Factor (K) = " << k << "\n";
 	this->num_buckets = n;
 	this->rep_factor = k;
-	string server_addr("0.0.0.0:50051"); // this is the IP that "Manager" is hosted on
+	string server_addr("0.0.0.0:50051"); // IP that "Manager" is hosted on
 	ManagerService service(this);
 	ServerBuilder builder;
 	builder.AddListeningPort(server_addr, grpc::InsecureServerCredentials());

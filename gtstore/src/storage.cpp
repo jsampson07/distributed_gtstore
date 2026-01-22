@@ -58,14 +58,17 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 	std::unique_ptr<gtstore::StorageService::Stub> stub = gtstore::StorageService::NewStub(channel);
 	Bucket *bucket = parent->buckets[bucket_id].get();
 
-	// let's acquire the lock now so that no one else can access this partition while we are copying data over
+	// lock to access partition wihle copying data (fine-grained locking/bucket-level)
 	bucket->bucket_mutex.lock();
 	std::unordered_map<string, val_t>::iterator iterator;
 	for (iterator = bucket->data_map.begin(); iterator != bucket->data_map.end(); iterator++) {
 		grpc::ClientContext context;
 		gtstore::PutRequest req;
 		gtstore::PutResponse resp;
-		req.set_key(iterator->first); // note that ->first is the key and ->second is the value
+		
+		// NOTE: first = key, second = value
+
+		req.set_key(iterator->first);
 		convert_to_protobuf(iterator->second, req.mutable_value()); // turn into format for protocol buffer
 
 		Status status = stub->Put(&context, req, &resp);
@@ -76,7 +79,9 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 	return Status::OK;
 }
 
-// this is all the storage node has to do when responding to a Ping request from the Manager (respond to server) --> acknowledge!
+/**
+ * Allows Storage Node to respond to the Ping sent by Manager (heartbeat)
+ */
 Status GTStoreStorage::StorageService::Ping(ServerContext *context, const gtstore::PingRequest *req, gtstore::PingResponse *resp) {
 	resp->set_ack(true);
 	return Status::OK;
@@ -109,7 +114,6 @@ void GTStoreStorage::init(int port) {
 	}
 	node_id = resp.node_id();
 	num_buckets = resp.bucket_count();
-	// now let's initialize the buckets with Partition's
 	for (int i = 0; i < num_buckets; i++) {
 		buckets.push_back(unique_ptr<Bucket>(new Bucket()));
 	}
@@ -120,7 +124,7 @@ void GTStoreStorage::init(int port) {
 
 int main(int argc, char **argv) {
 	GTStoreStorage storage;
-	int port = 50052; // lets just default this to +1 of the manager
+	int port = 50052; // default to +1 of the Manager
 	for (int i =1; i < argc; i++) {
 		if (string(argv[i]) == "--port") {
 			if (i+1 < argc) {
