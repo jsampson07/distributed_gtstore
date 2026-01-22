@@ -40,13 +40,14 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		parent->node_mutex.unlock();
 		return Status(grpc::StatusCode::UNAVAILABLE, "No nodes");
 	}
-	int bucket_id = get_bucket_id(req->key(), parent->num_buckets); // this is to calculate correct bucket corresponding to the key hashed
+	int bucket_id = get_bucket_id(req->key(), parent->num_buckets);
 	int node_arr_size = (int) node_arr.size();
 	int start = bucket_id;
 	int num_reps = parent->rep_factor;
 	int count = 0; // this is the number of nodes we have gone through (we always want K nodes of data or try to because of the number of replicas)
 					// we only disobey this if the number of nodes on our system is less than the number of replicas (bc nodes were killed)
-	int num_nodes_found = 0; // once this is num_reps then we know we have iterated our "K" factor of times
+	// When num_nodes_found == num_reps (iterated K times), terminate
+	int num_nodes_found = 0;
 	while (num_nodes_found < num_reps && count < node_arr_size) {
 		int curr_idx = (start + count) % node_arr_size; // we start at "start" too because we want to count our current node as a "replica (K)"
 		int curr_node_id = node_arr[curr_idx];
@@ -60,9 +61,6 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		count++;
 	}
 	parent->node_mutex.unlock();
-	if (count == 0) {
-		return Status(grpc::StatusCode::UNAVAILABLE, "There are no nodes in the system...");
-	}
 
 	return Status::OK;
 }

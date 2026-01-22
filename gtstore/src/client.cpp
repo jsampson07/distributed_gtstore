@@ -6,6 +6,7 @@
  * @return pointer to the Stub
  */
 gtstore::StorageService::Stub* GTStoreClient::get_node_stub(string addr) {
+	// if the node_stub does NOT exist for this addr, we want to create it and create a new mapping for it
 	if (node_stubs.find(addr) == node_stubs.end()) {
 		std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
 		node_stubs[addr] = gtstore::StorageService::NewStub(channel);
