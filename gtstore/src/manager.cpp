@@ -75,6 +75,7 @@ void GTStoreManager::check_nodes() {
 	while (true) {
 		sleep(3);
 		vector<NodeMeta> checked;
+		std::map<int, NodeMeta>::iterator iterator;
 		node_mutex.lock();
 		for (iterator = nodes.begin(); iterator != nodes.end(); iterator++) {
 			checked.push_back(iterator->second);
@@ -102,7 +103,7 @@ void GTStoreManager::check_nodes() {
 				}
 				node_mutex.unlock();
 				if (should_handle) {
-					handle_node_failure(curr_node.id)
+					handle_node_failure(curr_node.id);
 				}
 			}
 		}
