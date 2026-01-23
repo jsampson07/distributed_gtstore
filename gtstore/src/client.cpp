@@ -60,7 +60,7 @@ val_t GTStoreClient::get(string key) {
 		req2.set_key(key);
 		gtstore::StorageService::Stub *stub = get_node_stub(addr);
 
-		context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
+		context2.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 		Status status = stub->Get(&context2, req2, &resp2);
 
 		if (status.ok() && resp2.found()) {

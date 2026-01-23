@@ -185,7 +185,9 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 			if (it2 == nodes.end() || it3 == nodes.end() || !it2->second.is_alive || !it3->second.is_alive) {
 				node_mutex.unlock();
 				cout << "No backup or target node found\n";
-				return;
+
+				continue; // return; ?????????????
+				
 			}
 			std::shared_ptr<gtstore::StorageService::Stub> backup_stub = it2->second.stub;
 			string target_addr = it3->second.addr;
