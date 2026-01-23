@@ -14,13 +14,18 @@ Status GTStoreManager::ManagerService::Register(ServerContext *context, const gt
 	new_node.id = id;
 	new_node.addr = req->address();
 	new_node.is_alive = true;
+	parent->node_mutex.unlock();
+
 	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(new_node.addr, grpc::InsecureChannelCredentials());
 	new_node.stub = gtstore::StorageService::NewStub(channel);
+
+	parent->node_mutex.lock();
 	parent->nodes[id] = new_node;
 	resp->set_node_id(id);
 	resp->set_success(new_node.is_alive);
 	resp->set_bucket_count(parent->num_buckets);
 	parent->node_mutex.unlock();
+
 	cout << "Manager has responded to Register request, created new node ID: " << new_node.id << " Address: " << new_node.addr << "\n";
 	return Status::OK;
 }
@@ -36,11 +41,10 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 	for (iterator = parent->nodes.begin(); iterator != parent->nodes.end(); iterator++) {
 		node_arr.push_back(iterator->first);
 	}
+	parent->node_mutex.unlock();
 	if (node_arr.empty()) {
-		parent->node_mutex.unlock();
 		return Status(grpc::StatusCode::UNAVAILABLE, "No nodes");
 	}
-	parent->node_mutex.unlock();
 	int bucket_id = get_bucket_id(req->key(), parent->num_buckets);
 	int node_arr_size = (int) node_arr.size();
 	int start = bucket_id;
@@ -53,8 +57,9 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		int curr_idx = (start + count) % node_arr_size; // we start at "start" too because we want to count our current node as a "replica (K)"
 		int curr_node_id = node_arr[curr_idx];
 		parent->node_mutex.lock();
-		if (parent->nodes.count(curr_node_id) && parent->nodes[curr_node_id].is_alive) {
-			resp->add_replica_addrs(parent->nodes[curr_node_id].addr);
+		std::map<int, NodeMeta>::iterator iterator2 = parent->nodes.find(curr_node_id);
+		if (iterator2 != parent->nodes.end() && iterator2->second.is_alive) {
+			resp->add_replica_addrs(iterator2->second.addr);
 			resp->add_replica_ids(curr_node_id);
 			num_nodes_found++;
 		}
@@ -87,11 +92,13 @@ void GTStoreManager::check_nodes() {
 				continue;
 			}
 			grpc::ClientContext context;
-			// 1 second to respond --> w/in time window no response? ==> treated as dead
-			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 			gtstore::PingRequest req;
 			gtstore::PingResponse resp;
+
+			// 1 second to respond --> w/in time window no response? ==> treated as dead
+			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(2));
 			Status status = curr_node.stub->Ping(&context, req, &resp);
+
 			if (!status.ok()) {
 				node_mutex.lock();
 				bool should_handle = false;
@@ -125,6 +132,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 	for (iterator = nodes.begin(); iterator != nodes.end(); iterator++) {
 		nodes_arr.push_back(iterator->first);
 	}
+	int num_nodes = (int) nodes.size();
 	node_mutex.unlock();
 
 	for (int i = 0; i < rep_factor; i++) {
@@ -135,20 +143,23 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 		int backup_id = -1;
 		int target_id = -1;
 		//cout << "Currently looking at bucket ID: " << bucket_to_fix << "'s data to rep\n";
-		int total_nodes = (int) nodes.size();
-		for (int j = 0; j < total_nodes; j++) {
-			int idx = (bucket_to_fix + j) % total_nodes;
+		for (int j = 0; j < num_nodes; j++) {
+			int idx = (bucket_to_fix + j) % num_nodes;
 			int possible_id = nodes_arr[idx];
+			node_mutex.lock();
 			if (nodes[possible_id].is_alive) {
+				node_mutex.unlock();
 				backup_id = possible_id; // this is the node we will copy data from to our future "target_id"
 				break;
 			}
+			node_mutex.unlock();
 		}
 		int counter = 0; // we want to copy data over to the Kth node
 		// now let's find a node that SHOULD be the new "replica" for curr data/node
-		for (int j = 0; j < total_nodes; j++) {
-			int idx = (bucket_to_fix + j) % total_nodes;
+		for (int j = 0; j < num_nodes; j++) {
+			int idx = (bucket_to_fix + j) % num_nodes;
 			int possible_id = nodes_arr[idx];
+			node_mutex.lock();
 			if (nodes[possible_id].is_alive) {
 				counter++;
 				// kth alive node so this will be our new replica
@@ -156,6 +167,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 					target_id = possible_id;
 				}
 			}
+			node_mutex.unlock();
 		}		
 		if (backup_id == target_id) {
 			//cout << "K=1 meaning no backup exists. Data is lost forever. Part of the project as mentioned by a Piazza post.\n";
@@ -165,16 +177,30 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 		}
 		
 		if (backup_id != -1 && target_id != -1) {
+			// let's get the addr of the target to tell the backup node to send data to this
+
+			node_mutex.lock();
+			std::map<int, NodeMeta>::iterator it2 = nodes.find(backup_id);
+			std::map<int, NodeMeta>::iterator it3 = nodes.find(target_id);
+			if (it2 == nodes.end() || it3 == nodes.end() || !it2->second.is_alive || !it3->second.is_alive) {
+				node_mutex.unlock();
+				cout << "No backup or target node found\n";
+				return;
+			}
+			std::shared_ptr<gtstore::StorageService::Stub> backup_stub = it2->second.stub;
+			string target_addr = it3->second.addr;
+			node_mutex.unlock();
+
 			grpc::ClientContext context;
 			gtstore::TransferDataRequest req;
 			gtstore::TransferDataResponse resp;
-			// let's get the addr of the target to tell the backup node to send data to this
-			string target_addr = nodes[target_id].addr;
+
 			req.set_dest_addr(target_addr);
 			req.set_bucket_id(bucket_to_fix);
 
-			// now actually do the work
-			Status status = nodes[backup_id].stub->TransferData(&context, req, &resp);
+			// Avoids slow node or hung node
+			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
+			Status status = backup_stub->TransferData(&context, req, &resp);
 			if (status.ok()) {
 				cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
 			} else {

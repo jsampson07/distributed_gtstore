@@ -71,6 +71,7 @@ Status GTStoreStorage::StorageService::TransferData(ServerContext* context, cons
 		req.set_key(iterator->first);
 		convert_to_protobuf(iterator->second, req.mutable_value()); // turn into format for protocol buffer
 
+		context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 		Status status = stub->Put(&context, req, &resp);
 	}
 	bucket->bucket_mutex.unlock();
@@ -107,6 +108,7 @@ void GTStoreStorage::init(int port) {
 	gtstore::RegisterNodeResponse resp;
 	req.set_address(my_addr);
 
+	context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 	Status status = manager_stub->Register(&context, req, &resp);
 	if (!status.ok()) {
 		cout << "WE FAILED to Register Node! Womp Womp\n";
