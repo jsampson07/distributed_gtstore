@@ -96,7 +96,7 @@ void GTStoreManager::check_nodes() {
 			gtstore::PingResponse resp;
 
 			// 1 second to respond --> w/in time window no response? ==> treated as dead
-			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(2));
+			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 			Status status = curr_node.stub->Ping(&context, req, &resp);
 
 			if (!status.ok()) {
@@ -199,7 +199,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 			req.set_bucket_id(bucket_to_fix);
 
 			// Avoids slow node or hung node
-			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
+			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
 			Status status = backup_stub->TransferData(&context, req, &resp);
 			if (status.ok()) {
 				cout << "Recovered lost data!!! Placed into NODE ID: " << target_id << "\n";
