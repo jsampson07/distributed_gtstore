@@ -53,28 +53,51 @@ Status GTStoreStorage::StorageService::Get(ServerContext *context, const gtstore
 Status GTStoreStorage::StorageService::TransferData(ServerContext* context, const gtstore::TransferDataRequest *req, gtstore::TransferDataResponse *resp) {
 	string target = req->dest_addr(); // this is to get the destination address passed in by the request
 	int bucket_id = req->bucket_id();
+	Bucket *bucket = parent->buckets[bucket_id].get();
+
+	std::unordered_map<string, val_t> bucket_snapshot;
+	bucket->bucket_mutex.lock();
+	// We only need a snapshot of the data_map itself to copy over key,val pairs
+	bucket_snapshot = bucket->data_map;
+	bucket->bucket_mutex.unlock();
+
 	// we are creating a new channel to communicate with the node i will transfer the data over to
 	std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
 	std::unique_ptr<gtstore::StorageService::Stub> stub = gtstore::StorageService::NewStub(channel);
-	Bucket *bucket = parent->buckets[bucket_id].get();
 
 	// lock to access partition wihle copying data (fine-grained locking/bucket-level)
-	bucket->bucket_mutex.lock();
+	int success_cnt = 0;
 	std::unordered_map<string, val_t>::iterator iterator;
-	for (iterator = bucket->data_map.begin(); iterator != bucket->data_map.end(); iterator++) {
-		grpc::ClientContext context;
-		gtstore::PutRequest req;
-		gtstore::PutResponse resp;
+	for (iterator = bucket_snapshot.begin(); iterator != bucket_snapshot.end(); iterator++) {
+		gtstore::PutRequest req2;
+		gtstore::PutResponse resp2;
 		
 		// NOTE: first = key, second = value
 
-		req.set_key(iterator->first);
-		convert_to_protobuf(iterator->second, req.mutable_value()); // turn into format for protocol buffer
+		req2.set_key(iterator->first);
+		convert_to_protobuf(iterator->second, req2.mutable_value()); // turn into format for protocol buffer
 
-		context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
-		Status status = stub->Put(&context, req, &resp);
+		bool key_transferred = false;
+		int retries = 3;
+		for (int retry = 0; retry < retries; retry++) {
+			grpc::ClientContext context;
+			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
+			Status status = stub->Put(&context, req2, &resp2);
+			if (status.ok()) {
+				key_transferred = true;
+				break;
+			} else {
+				cout << "Transfer failed for key: " << iterator->first << ". Retrying transfer...\n";
+				sleep(1);
+			}
+		}
+
+		if (!key_transferred) {
+			cout << "Failed to transfer key " << iterator->first << " after " << retries << " attempts. Transaction failed.\n";
+			resp->set_success(false);
+			return Status(grpc::StatusCode::UNAVAILABLE, "Data transfer failed due to network partition or node failure");
+		}
 	}
-	bucket->bucket_mutex.unlock();
 	cout << "We have successfully transfered all the data\n";
 	resp->set_success(true);
 	return Status::OK;

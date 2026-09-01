@@ -52,13 +52,14 @@ inline val_t convert_from_protobuf(const gtstore::Value &src) {
 
 /**
  * Canonical shard index
- * Bucket ID ~= Primary Node ID given (node ids are 0...N-1 and num_buckets == N)
- * Key will always hash to the same Node ID, hence it essentially is giving us the Primary Node ID
+ * Bucket ID == Primary Node ID given (node ids are 0...N-1 and num_buckets == N)
+ * Strict Hashing: Key will always hash to the same Node ID, hence it essentially is giving us the Primary Node ID
  * B/c of bucket<==>node one-to-one correspondence, they are equal
  */
 inline int get_bucket_id(string key, int num_buckets) {
 	std::hash<std::string> hash;
 	size_t hash_val = hash(key);
+	// This is "Strict Hashing" --> map a key directly to a specific bucket
 	int result = hash_val % num_buckets;
 	return result;
 }
