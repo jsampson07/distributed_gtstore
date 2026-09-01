@@ -1,9 +1,4 @@
-# Project 4: GT Store
-
-## 0. Reminder
-
-- You can work in pair on this project.
-- Test program on [VM cluster](https://github.gatech.edu/CS6210-4210-Fall24/Project1/blob/main/doc/vm_userguide.md) before making compression and [submission](./project_4_submission.md).
+# GT Store
 
 ## 1. Introduction
 
