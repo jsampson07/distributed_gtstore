@@ -1,0 +1,6 @@
+bin/
+gtstore/src/*.pb.cc
+gtstore/src/*.pb.h
+gtstore/src/*.grpc.pb.cc
+gtstore/src/*.grpc.pb.h
+*.log
