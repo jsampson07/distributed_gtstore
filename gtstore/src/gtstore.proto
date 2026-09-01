@@ -33,6 +33,11 @@ message GetNodeForKeyRequest {
 }
 
 // manager responds with node to place key-val pair
+
+
+
+
+/// WHY DO WE NEED TO SEND BOTH REPLICA ADDRESSES AND IDs????
 message GetNodeForKeyResponse {
     repeated string replica_addrs = 1;
     repeated int32 replica_ids = 2;
@@ -71,12 +76,11 @@ message GetResponse {
 
 // this is the request made by the Manager to "ping" storage nodes to see if they are alive or dead
 message PingRequest {
-    int32 node_id = 1; // the id for the request
 }
 
 // this is the response from the storage node to the manager to indicate if alive or dead
 message PingResponse {
-    bool ack = 1; // this is to acknowledge whether the node is alive or nto
+    bool ack = 1; // this is to acknowledge whether the node is alive or not
 }
 
 // this is the request made by the manager to the "surviving" node that contains the replica data

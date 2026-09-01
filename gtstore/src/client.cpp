@@ -80,8 +80,8 @@ val_t GTStoreClient::get(string key) {
 
 /**
  * For this method, we want to write the data to the "primary" node AND ALL "K" replicas
- * NOTE: from piazza post ==> makes sense but if K=1, then it should be impossible to retrieve data when "the" node dies because we only copy data into K nodes (1 here)
- * NOTE FOR CLARIFICATION: NOT K+1 nodes, rather we write to K nodes total (the data is stored on K nodes TOTAL)
+ * if K=1, then it should be impossible to retrieve data when node dies because we only copy data into K nodes (1 here)
+ * NOTE: we write to K nodes total (the data is stored on K nodes TOTAL)
  */
 bool GTStoreClient::put(string key, val_t value) {
 	if (key.length() > MAX_KEY_BYTE_PER_REQUEST) {
@@ -101,7 +101,7 @@ bool GTStoreClient::put(string key, val_t value) {
 	
 	cout << "Inside GTStoreClient::put() for client: " << client_id << " key: " << key << " value: " << print_value << "\n";
 
-	// Fetch the current val before overwriting so we can undo our changes (incomplete write operation)
+	// "Read-Before-Write": Fetch the current val before overwriting so we can undo our changes (incomplete write operation)
 	val_t old_value = this->get(key);
 
 	grpc::ClientContext context;
@@ -143,6 +143,9 @@ bool GTStoreClient::put(string key, val_t value) {
 			servers += addr + "  ";
 			// We log this node as successfully written to (potential for needing rollback) if future failure
 			successful_addrs.push_back(addr);
+		} else {
+			cout << "Failed to write to node: " << addr << "\n";
+			break;
 		}
 	}
 	if (success_count == resp.replica_addrs_size()) { // Expected to be equal if all writes succeeded
@@ -153,7 +156,6 @@ bool GTStoreClient::put(string key, val_t value) {
 	} else {
 		cout << "We wrote to" << success_count << "... BUT Expected to write to :" << resp.replica_addrs_size() << "\n";
 		cout << "Initiating Rollback to previous state...\n";
-
 		for (string rollback_addr : successful_addrs) {
 			grpc::ClientContext rollback_ctxt;
 			gtstore::PutRequest rollback_req;
@@ -164,12 +166,16 @@ bool GTStoreClient::put(string key, val_t value) {
 			convert_to_protobuf(old_value, rollback_req.mutable_value());
 			gtstore::StorageService::Stub *rollback_stub = get_node_stub(rollback_addr);
 
-			rollback_ctxt.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
-			Status rollback_status = rollback_stub->Put(&rollback_ctxt, rollback_req, &rollback_resp);
-			if (rollback_status.ok()) {
-				cout << "Successfully rolled back node: " << rollback_addr << "\n";
-			} else {
-				cout << "Rollback failed on node: " << rollback_addr << "\n";
+			// DATA CONSISTENCY !!!!!!!!
+			for (int retry = 0; retry < 3; retry++) {
+				rollback_ctxt.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
+				Status rollback_status = rollback_stub->Put(&rollback_ctxt, rollback_req, &rollback_resp);
+				if (rollback_status.ok()) {
+					cout << "Successfully rolled back node: " << rollback_addr << "\n";
+					break;
+				} else {
+					cout << "Rollback failed on node: " << rollback_addr << "\n";
+				}
 			}
 		}
 		return false;

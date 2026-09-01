@@ -58,6 +58,7 @@ Status GTStoreManager::ManagerService::GetNodeForKey(ServerContext *context, con
 		int curr_node_id = node_arr[curr_idx];
 		parent->node_mutex.lock();
 		std::map<int, NodeMeta>::iterator iterator2 = parent->nodes.find(curr_node_id);
+		// We want to check that the node exists AND that the node is alive
 		if (iterator2 != parent->nodes.end() && iterator2->second.is_alive) {
 			resp->add_replica_addrs(iterator2->second.addr);
 			resp->add_replica_ids(curr_node_id);
@@ -99,7 +100,7 @@ void GTStoreManager::check_nodes() {
 			context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(1));
 			Status status = curr_node.stub->Ping(&context, req, &resp);
 
-			if (!status.ok()) {
+			if (!resp.ack()) { // if the node is not alive, we need to handle the node failure
 				node_mutex.lock();
 				bool should_handle = false;
 
@@ -136,9 +137,7 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 	node_mutex.unlock();
 
 	for (int i = 0; i < rep_factor; i++) {
-		// now we want to find the bucket we want to fix (bucket that stored replica data on the dead node)
-		// 'i' represents the bucket BEFORE the dead node (because we store replicas from the 'primary node' up (by +1))
-			// so Node 2 would store Node 1 replica data (in bucket 1)
+		// Assume Node X is the dead node, want to restore bucket X (primary data stored) AND buckets[j] for nodes whose replica data was stored on node X ("previous" bckts)
 		int bucket_to_fix = (dead_node_id - i + num_buckets) % num_buckets;
 		int backup_id = -1;
 		int target_id = -1;
@@ -186,8 +185,8 @@ void GTStoreManager::handle_node_failure(int dead_node_id) {
 				node_mutex.unlock();
 				cout << "No backup or target node found\n";
 
-				continue; // return; ?????????????
-				
+				continue;
+
 			}
 			std::shared_ptr<gtstore::StorageService::Stub> backup_stub = it2->second.stub;
 			string target_addr = it3->second.addr;
