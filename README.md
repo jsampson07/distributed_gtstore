@@ -2,7 +2,7 @@
 
 **A distributed, replicated, in-memory key-value store in C++ with gRPC.**
 
-Course project for Georgia Tech *Advanced Operating Systems* (Project 4). Explores how to partition data across nodes, keep K replicas consistent under failure, and recover lost partitions — without shared memory or a filesystem as the control plane.
+Explores how to partition data across nodes, keep K replicas consistent under failure, and recover lost partitions — without shared memory or a filesystem as the control plane.
 
 Implementation lives in [`gtstore/`](gtstore/).
 
